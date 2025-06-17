@@ -195,6 +195,7 @@
         <ul>
             <li><span>Tab</span>: 하위 가지</li>
             <li><span>Enter</span>: 동일선상 가지</li>
+            <li><span>방향키</span>: 노드 선택 이동</li>
             <li><span>Ctrl + X</span>: 잘라내기</li>
             <li><span>Ctrl + V</span>: 붙여넣기</li>
             <li><span>더블클릭</span>: 텍스트 수정</li>
@@ -279,6 +280,7 @@
             if(newSelectedNode) {
                 newSelectedNode.element.classList.add('selected');
                 selectedNodeId = id;
+                newSelectedNode.element.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
             }
         }
         
@@ -302,7 +304,6 @@
             
             const finishEditing = () => {
                 const newText = input.value.trim() || '새 노드';
-                // 이미 input이 span으로 교체되었는지 확인하여 중복 실행 방지
                 if (node.element.contains(input)) {
                     node.text = newText;
                     const newSpan = document.createElement('span');
@@ -316,9 +317,13 @@
 
             input.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
-                    // 'Enter' 키가 상위 이벤트 리스너(새 노드 생성)에 전달되는 것을 막습니다.
                     e.stopPropagation(); 
                     finishEditing();
+                } else if (e.key === 'Escape') {
+                    // Escape 키로 편집 취소
+                    if (node.element.contains(input)) {
+                        node.element.replaceChild(span, input);
+                    }
                 }
             });
         }
@@ -335,7 +340,7 @@
             
             nodeToMove.parentId = newParentId;
             newParent.children.push(nodeId);
-            // 방향 재설정: 루트의 자식이 되면 방향이 바뀔 수 있고, 아니면 새 부모를 따름
+            
             if (newParent.parentId === null) {
                 balanceRootChildren();
             } else {
@@ -351,13 +356,10 @@
             return isAncestor(potentialAncestorId, childNode.parentId);
         }
 
-        // --- 레이아웃 및 그리기 (핵심 로직 변경) ---
-
         function reorganizeLayout() {
             const root = nodes.find(n => !n.parentId);
             if (!root) return;
 
-            // 1. 루트 노드를 컨테이너 중앙에 배치
             const containerCenterX = container.scrollWidth / 2;
             const containerCenterY = container.clientHeight / 2;
             root.x = containerCenterX;
@@ -365,11 +367,9 @@
             root.element.style.left = `${root.x - root.element.offsetWidth / 2}px`;
             root.element.style.top = `${root.y - root.element.offsetHeight / 2}px`;
 
-            // 2. 루트의 직계 자식들을 좌우로 분배
             const leftChildren = root.children.map(findNodeById).filter(n => n.direction === -1);
             const rightChildren = root.children.map(findNodeById).filter(n => n.direction === 1);
 
-            // 3. 각 방향의 서브트리 높이 계산 및 배치
             const rightTreeHeight = calculateTotalSubtreeHeight(rightChildren);
             let currentY = root.y - rightTreeHeight / 2;
             rightChildren.forEach(child => {
@@ -456,14 +456,13 @@
             });
         }
 
-        // 루트의 자식 노드들을 좌우로 균형있게 분배하는 함수
         function balanceRootChildren() {
             const root = nodes.find(n => !n.parentId);
             if (!root) return;
 
             const children = root.children.map(findNodeById);
             children.forEach((child, index) => {
-                child.direction = (index % 2 === 0) ? 1 : -1; // 짝수는 오른쪽, 홀수는 왼쪽
+                child.direction = (index % 2 === 0) ? 1 : -1;
             });
         }
         
@@ -475,13 +474,53 @@
             const selectedNode = findNodeById(selectedNodeId);
             if (!selectedNode) return;
 
+            // 방향키 네비게이션
+            const arrowKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
+            if (arrowKeys.includes(e.key)) {
+                e.preventDefault();
+                
+                // 루트 노드일 때
+                if (selectedNode.parentId === null) {
+                    if (e.key === 'ArrowRight') {
+                        const rightChildren = selectedNode.children.map(findNodeById).filter(n => n.direction === 1);
+                        if (rightChildren.length > 0) selectNode(rightChildren[0].id);
+                    } else if (e.key === 'ArrowLeft') {
+                        const leftChildren = selectedNode.children.map(findNodeById).filter(n => n.direction === -1);
+                        if (leftChildren.length > 0) selectNode(leftChildren[0].id);
+                    }
+                    return;
+                }
+                
+                const parent = findParent(selectedNodeId);
+                const siblingsInDirection = parent.children.map(findNodeById).filter(n => n.direction === selectedNode.direction);
+                const currentIndex = siblingsInDirection.findIndex(n => n.id === selectedNodeId);
+
+                switch (e.key) {
+                    case 'ArrowUp':
+                        if (currentIndex > 0) selectNode(siblingsInDirection[currentIndex - 1].id);
+                        break;
+                    case 'ArrowDown':
+                        if (currentIndex < siblingsInDirection.length - 1) selectNode(siblingsInDirection[currentIndex + 1].id);
+                        break;
+                    case 'ArrowLeft':
+                        if (selectedNode.direction === 1) selectNode(parent.id); // 오른쪽 가지 -> 부모로
+                        else if (selectedNode.children.length > 0) selectNode(selectedNode.children[0]); // 왼쪽 가지 -> 자식으로
+                        break;
+                    case 'ArrowRight':
+                        if (selectedNode.direction === -1) selectNode(parent.id); // 왼쪽 가지 -> 부모로
+                        else if (selectedNode.children.length > 0) selectNode(selectedNode.children[0]); // 오른쪽 가지 -> 자식으로
+                        break;
+                }
+                return;
+            }
+
             switch (e.key) {
                 case 'Tab': {
                     e.preventDefault();
                     let newNode;
-                    if (selectedNode.parentId === null) { // 루트 노드에서 자식 추가
+                    if (selectedNode.parentId === null) {
                         newNode = createNode('새 노드', selectedNodeId);
-                        balanceRootChildren(); // 추가 후 즉시 재분배
+                        balanceRootChildren();
                     } else {
                         newNode = createNode('새 노드', selectedNodeId);
                     }
@@ -492,10 +531,10 @@
                 }
                 case 'Enter': {
                      e.preventDefault();
-                    if (selectedNode.parentId) { // 루트 노드는 형제를 가질 수 없음
+                    if (selectedNode.parentId) {
                         const parent = findParent(selectedNodeId);
                         const newNode = createNode('새 노드', parent.id);
-                        if (parent.parentId === null) { // 추가된 노드의 부모가 루트면 재분배
+                        if (parent.parentId === null) {
                             balanceRootChildren();
                         }
                         reorganizeLayout();
@@ -531,10 +570,8 @@
             const selectedElem = document.querySelector('.node.selected');
             if (selectedElem) selectedElem.classList.remove('selected');
             
-            // 이미지 내보내기 전에 UI 요소 숨기기
             if (watermark) watermark.style.display = 'none';
             if (helpBox) helpBox.style.display = 'none';
-
 
             let minX = Infinity, minY = Infinity, maxX = 0, maxY = 0;
             nodes.forEach(node => {
@@ -544,19 +581,34 @@
                 maxX = Math.max(maxX, node.x + el.offsetWidth / 2);
                 maxY = Math.max(maxY, node.y + el.offsetHeight / 2);
             });
-            const contentWidth = maxX - minX + 100;
-            const contentHeight = maxY - minY + 100;
+            const padding = 50;
+            const contentWidth = maxX - minX + padding * 2;
+            const contentHeight = maxY - minY + padding * 2;
             
+            // html2canvas 옵션 개선
             html2canvas(container, {
-                backgroundColor: '#fdfdfd', logging: false, width: contentWidth, height: contentHeight,
-                x: minX - 50, y: minY - 50, scrollX: 0, scrollY: 0
+                backgroundColor: '#fdfdfd',
+                logging: false,
+                width: contentWidth,
+                height: contentHeight,
+                x: minX - padding,
+                y: minY - padding,
+                scrollX: 0,
+                scrollY: 0,
+                scale: window.devicePixelRatio, // 고해상도 지원
+                onclone: (clonedDoc) => {
+                    // 복제된 문서에서 UI 요소들이 보이지 않도록 함
+                    const clonedWatermark = clonedDoc.getElementById('watermark');
+                    if (clonedWatermark) clonedWatermark.style.display = 'none';
+                    const clonedHelpBox = clonedDoc.getElementById('help-box');
+                    if (clonedHelpBox) clonedHelpBox.style.display = 'none';
+                }
             }).then(canvas => {
                 const link = document.createElement('a');
                 link.href = canvas.toDataURL('image/png');
                 link.download = 'mindmap.png';
                 link.click();
                 
-                // 작업 완료 후 원래대로 복원
                 if (selectedElem) selectedElem.classList.add('selected');
                 if (watermark) watermark.style.display = 'block';
                 if (helpBox) helpBox.style.display = 'block';
@@ -569,7 +621,6 @@
             const rootNode = createNode('중심 토픽');
             reorganizeLayout();
             selectNode(rootNode.id);
-            // 초기 스크롤 위치를 중앙으로 이동
             container.scrollLeft = (container.scrollWidth - container.clientWidth) / 2;
         }
         window.onload = init;
