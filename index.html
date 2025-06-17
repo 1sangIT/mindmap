@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>심플 마인드맵</title>
+    <title>양방향 마인드맵</title>
     <!-- html2canvas 라이브러리 로드 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
@@ -504,11 +504,11 @@
                         break;
                     case 'ArrowLeft':
                         if (selectedNode.direction === 1) selectNode(parent.id); // 오른쪽 가지 -> 부모로
-                        else if (selectedNode.children.length > 0) selectNode(selectedNode.children[0]); // 왼쪽 가지 -> 자식으로
+                        else if (selectedNode.children.length > 0) selectNode(selectedNode.children[0].id); // 왼쪽 가지 -> 자식으로
                         break;
                     case 'ArrowRight':
                         if (selectedNode.direction === -1) selectNode(parent.id); // 왼쪽 가지 -> 부모로
-                        else if (selectedNode.children.length > 0) selectNode(selectedNode.children[0]); // 오른쪽 가지 -> 자식으로
+                        else if (selectedNode.children.length > 0) selectNode(selectedNode.children[0].id); // 오른쪽 가지 -> 자식으로
                         break;
                 }
                 return;
@@ -593,16 +593,10 @@
                 height: contentHeight,
                 x: minX - padding,
                 y: minY - padding,
-                scrollX: 0,
-                scrollY: 0,
-                scale: window.devicePixelRatio, // 고해상도 지원
-                onclone: (clonedDoc) => {
-                    // 복제된 문서에서 UI 요소들이 보이지 않도록 함
-                    const clonedWatermark = clonedDoc.getElementById('watermark');
-                    if (clonedWatermark) clonedWatermark.style.display = 'none';
-                    const clonedHelpBox = clonedDoc.getElementById('help-box');
-                    if (clonedHelpBox) clonedHelpBox.style.display = 'none';
-                }
+                // 스크롤 영역 전체를 캡쳐하기 위한 옵션 추가
+                windowWidth: container.scrollWidth,
+                windowHeight: container.scrollHeight,
+                scale: window.devicePixelRatio,
             }).then(canvas => {
                 const link = document.createElement('a');
                 link.href = canvas.toDataURL('image/png');
