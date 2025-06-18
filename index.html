@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>심플 마인드맵 v2</title>
+    <title>심플 마인드맵v3</title>
     <!-- html2canvas 라이브러리 로드 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
@@ -102,25 +102,44 @@
             fill: none;
         }
 
+        /* UI 버튼 공통 스타일 */
+        .ui-button {
+            position: fixed;
+            background-color: #fff;
+            color: #333;
+            padding: 8px 16px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            transition: all 0.2s;
+            z-index: 10;
+        }
+        .ui-button:hover {
+            background-color: #f5f5f5;
+            border-color: #aaa;
+        }
+
         /* 이미지 저장 버튼 스타일 */
         #export-btn {
-            position: fixed;
             top: 20px;
             right: 20px;
             background-color: #4CAF50;
             color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            transition: background-color 0.3s;
-            z-index: 10;
+            border-color: #4CAF50;
         }
         #export-btn:hover {
             background-color: #45a049;
+            border-color: #45a049;
         }
+        
+        /* 중앙으로 이동 버튼 스타일 */
+        #center-btn {
+            top: 20px;
+            left: 20px;
+        }
+
 
         /* 워터마크 스타일 추가 */
         #watermark {
@@ -136,7 +155,7 @@
         /* 도움말 상자 스타일 추가 */
         #help-box {
             position: fixed;
-            top: 20px;
+            top: 65px; /* 중앙으로 버튼 아래에 위치 */
             left: 20px;
             background-color: rgba(255, 255, 255, 0.95);
             border: 1px solid #e0e0e0;
@@ -184,18 +203,18 @@
         <svg id="mindmap-svg"></svg>
     </div>
 
-    <button id="export-btn">이미지로 저장</button>
+    <button id="export-btn" class="ui-button">이미지로 저장</button>
+    <button id="center-btn" class="ui-button">중앙으로</button>
     
-    <!-- 워터마크 요소 추가 -->
     <div id="watermark">sblab@secondbrainlab.com</div>
     
-    <!-- 도움말 상자 요소 추가 -->
     <div id="help-box">
         <strong>사용법</strong>
         <ul>
             <li><span>Tab</span>: 하위 가지</li>
             <li><span>Enter</span>: 동일선상 가지</li>
             <li><span>방향키</span>: 노드 선택 이동</li>
+            <li><span>Del / Bksp</span>: 선택 노드 삭제</li>
             <li><span>Ctrl + X</span>: 잘라내기</li>
             <li><span>Ctrl + V</span>: 붙여넣기</li>
             <li><span>더블클릭</span>: 텍스트 수정</li>
@@ -207,18 +226,17 @@
         const container = document.getElementById('mindmap-container');
         const svg = document.getElementById('mindmap-svg');
         const exportBtn = document.getElementById('export-btn');
+        const centerBtn = document.getElementById('center-btn');
         const watermark = document.getElementById('watermark');
         const helpBox = document.getElementById('help-box');
-
 
         let nodes = [];
         let selectedNodeId = null;
         let clipboardNodeData = null; 
         let nodeIdCounter = 0; 
-        const HORIZONTAL_GAP = 120; // 노드 간 가로 간격
-        const VERTICAL_GAP = 20;   // 노드 간 세로 간격
+        const HORIZONTAL_GAP = 120;
+        const VERTICAL_GAP = 20;
 
-        // --- 핵심 로직 (생성, 이벤트, 검색 등)은 이전과 유사 ---
         function generateId() { return `node-${nodeIdCounter++}`; }
         function findNodeById(id) { return nodes.find(n => n.id === id) || null; }
         function findParent(childId) {
@@ -243,7 +261,6 @@
                 const parentNode = findNodeById(parentId);
                 if (parentNode) {
                     parentNode.children.push(id);
-                    // 자식은 부모의 방향을 따름
                     nodeData.direction = parentNode.direction;
                 }
             }
@@ -320,7 +337,6 @@
                     e.stopPropagation(); 
                     finishEditing();
                 } else if (e.key === 'Escape') {
-                    // Escape 키로 편집 취소
                     if (node.element.contains(input)) {
                         node.element.replaceChild(span, input);
                     }
@@ -328,6 +344,26 @@
             });
         }
         
+        function deleteNode(nodeId) {
+            const nodeToDelete = findNodeById(nodeId);
+            if (!nodeToDelete) return;
+            
+            // 자식 노드들을 재귀적으로 삭제
+            [...nodeToDelete.children].forEach(childId => deleteNode(childId));
+            
+            // 부모의 children 배열에서 ID 제거
+            const parent = findParent(nodeId);
+            if (parent) {
+                parent.children = parent.children.filter(id => id !== nodeId);
+            }
+
+            // DOM에서 요소 삭제
+            nodeToDelete.element.remove();
+            
+            // nodes 배열에서 삭제
+            nodes = nodes.filter(n => n.id !== nodeId);
+        }
+
         function moveNode(nodeId, newParentId) {
             const nodeToMove = findNodeById(nodeId);
             const newParent = findNodeById(newParentId);
@@ -459,14 +495,10 @@
         function balanceRootChildren() {
             const root = nodes.find(n => !n.parentId);
             if (!root) return;
-
             const children = root.children.map(findNodeById);
-            children.forEach((child, index) => {
-                child.direction = (index % 2 === 0) ? 1 : -1;
-            });
+            children.forEach((child, index) => { child.direction = (index % 2 === 0) ? 1 : -1; });
         }
         
-        // --- 키보드 이벤트 핸들러 ---
         document.addEventListener('keydown', (e) => {
             if (e.target.tagName === 'INPUT') return;
             if (!selectedNodeId) return;
@@ -474,12 +506,10 @@
             const selectedNode = findNodeById(selectedNodeId);
             if (!selectedNode) return;
 
-            // 방향키 네비게이션
             const arrowKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
             if (arrowKeys.includes(e.key)) {
                 e.preventDefault();
                 
-                // 루트 노드일 때
                 if (selectedNode.parentId === null) {
                     if (e.key === 'ArrowRight') {
                         const rightChildren = selectedNode.children.map(findNodeById).filter(n => n.direction === 1);
@@ -492,7 +522,7 @@
                 }
                 
                 const parent = findParent(selectedNodeId);
-                const siblingsInDirection = parent.children.map(findNodeById).filter(n => n.direction === selectedNode.direction);
+                const siblingsInDirection = parent.children.map(findNodeById).filter(n => n.direction === selectedNode.direction).sort((a, b) => a.y - b.y);
                 const currentIndex = siblingsInDirection.findIndex(n => n.id === selectedNodeId);
 
                 switch (e.key) {
@@ -503,18 +533,30 @@
                         if (currentIndex < siblingsInDirection.length - 1) selectNode(siblingsInDirection[currentIndex + 1].id);
                         break;
                     case 'ArrowLeft':
-                        if (selectedNode.direction === 1) selectNode(parent.id); // 오른쪽 가지 -> 부모로
-                        else if (selectedNode.children.length > 0) selectNode(selectedNode.children[0].id); // 왼쪽 가지 -> 자식으로
+                        if (selectedNode.direction === 1) selectNode(parent.id);
+                        else if (selectedNode.children.length > 0) selectNode(selectedNode.children[0].id);
                         break;
                     case 'ArrowRight':
-                        if (selectedNode.direction === -1) selectNode(parent.id); // 왼쪽 가지 -> 부모로
-                        else if (selectedNode.children.length > 0) selectNode(selectedNode.children[0].id); // 오른쪽 가지 -> 자식으로
+                        if (selectedNode.direction === -1) selectNode(parent.id);
+                        else if (selectedNode.children.length > 0) selectNode(selectedNode.children[0].id);
                         break;
                 }
                 return;
             }
 
             switch (e.key) {
+                case 'Delete':
+                case 'Backspace':
+                     e.preventDefault();
+                     if (selectedNode.parentId) { // 루트 노드는 삭제 불가
+                        const parent = findParent(selectedNodeId);
+                        deleteNode(selectedNodeId);
+                        selectedNodeId = null;
+                        balanceRootChildren();
+                        reorganizeLayout();
+                        if (parent) selectNode(parent.id); // 삭제 후 부모 노드 선택
+                     }
+                    break;
                 case 'Tab': {
                     e.preventDefault();
                     let newNode;
@@ -566,46 +608,43 @@
         
         container.addEventListener('click', (e) => { if (e.target === container) deselectAll(); });
 
+        centerBtn.addEventListener('click', () => {
+            const root = nodes.find(n => !n.parentId);
+            if (root) {
+                selectNode(root.id);
+            }
+        });
+
         exportBtn.addEventListener('click', () => {
             const selectedElem = document.querySelector('.node.selected');
             if (selectedElem) selectedElem.classList.remove('selected');
             
-            if (watermark) watermark.style.display = 'none';
-            if (helpBox) helpBox.style.display = 'none';
+            watermark.style.display = 'none';
+            helpBox.style.display = 'none';
 
-            let minX = Infinity, minY = Infinity, maxX = 0, maxY = 0;
-            nodes.forEach(node => {
-                const el = node.element;
-                minX = Math.min(minX, node.x - el.offsetWidth / 2);
-                minY = Math.min(minY, node.y - el.offsetHeight / 2);
-                maxX = Math.max(maxX, node.x + el.offsetWidth / 2);
-                maxY = Math.max(maxY, node.y + el.offsetHeight / 2);
-            });
-            const padding = 50;
-            const contentWidth = maxX - minX + padding * 2;
-            const contentHeight = maxY - minY + padding * 2;
-            
-            // html2canvas 옵션 개선
+            // 캡처 전 스크롤을 맨 위, 맨 왼쪽으로 이동
+            const { scrollLeft, scrollTop } = container;
+            container.scrollTo(0, 0);
+
             html2canvas(container, {
                 backgroundColor: '#fdfdfd',
-                logging: false,
-                width: contentWidth,
-                height: contentHeight,
-                x: minX - padding,
-                y: minY - padding,
-                // 스크롤 영역 전체를 캡쳐하기 위한 옵션 추가
+                scale: window.devicePixelRatio,
+                // 스크롤 가능한 전체 영역을 캡처하도록 설정
+                width: container.scrollWidth,
+                height: container.scrollHeight,
                 windowWidth: container.scrollWidth,
                 windowHeight: container.scrollHeight,
-                scale: window.devicePixelRatio,
             }).then(canvas => {
                 const link = document.createElement('a');
                 link.href = canvas.toDataURL('image/png');
                 link.download = 'mindmap.png';
                 link.click();
                 
+                // 작업 완료 후 원래대로 복원
                 if (selectedElem) selectedElem.classList.add('selected');
-                if (watermark) watermark.style.display = 'block';
-                if (helpBox) helpBox.style.display = 'block';
+                watermark.style.display = 'block';
+                helpBox.style.display = 'block';
+                container.scrollTo(scrollLeft, scrollTop); // 스크롤 위치 복원
             });
         });
         
