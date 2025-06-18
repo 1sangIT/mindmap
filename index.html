@@ -3,7 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>심플 마인드맵 v4</title>
+    <title>심플 마인드맵 v5</title>
+    <!-- PWA 테마 색상 및 아이콘 설정 -->
+    <meta name="theme-color" content="#4a90e2"/>
+    <link rel="apple-touch-icon" href="https://placehold.co/192x192/4a90e2/ffffff?text=SMM">
+    <!-- manifest.json 링크 (스크립트로 동적 생성) -->
+    <link rel="manifest" id="manifest">
+    
     <!-- html2canvas 라이브러리 로드 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
@@ -241,6 +247,61 @@
 
 
     <script>
+        // --- PWA 설정 ---
+        function setupPWA() {
+            // 1. Manifest 파일 동적 생성
+            const manifestData = {
+                "name": "심플 마인드맵",
+                "short_name": "마인드맵",
+                "start_url": ".",
+                "display": "standalone",
+                "background_color": "#fdfdfd",
+                "theme_color": "#4a90e2",
+                "description": "간단하고 빠른 웹 기반 마인드맵 애플리케이션",
+                "icons": [
+                    { "src": "https://placehold.co/192x192/4a90e2/ffffff?text=SMM", "sizes": "192x192", "type": "image/png" },
+                    { "src": "https://placehold.co/512x512/4a90e2/ffffff?text=SMM", "sizes": "512x512", "type": "image/png" }
+                ]
+            };
+            const manifestString = JSON.stringify(manifestData);
+            const manifestBlob = new Blob([manifestString], { type: 'application/json' });
+            const manifestUrl = URL.createObjectURL(manifestBlob);
+            document.getElementById('manifest').href = manifestUrl;
+
+            // 2. Service Worker 등록
+            if ('serviceWorker' in navigator) {
+                const swCode = `
+                    const CACHE_NAME = 'simple-mindmap-cache-v1';
+                    const urlsToCache = [
+                        '/',
+                        '/index.html', // 만약 파일 이름이 다르다면 이 부분을 수정해야 합니다.
+                        'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'
+                    ];
+                    self.addEventListener('install', event => {
+                        event.waitUntil(
+                            caches.open(CACHE_NAME)
+                                .then(cache => cache.addAll(urlsToCache))
+                        );
+                    });
+                    self.addEventListener('fetch', event => {
+                        event.respondWith(
+                            caches.match(event.request)
+                                .then(response => {
+                                    return response || fetch(event.request);
+                                })
+                        );
+                    });
+                `;
+                const swBlob = new Blob([swCode], { type: 'application/javascript' });
+                const swUrl = URL.createObjectURL(swBlob);
+                navigator.serviceWorker.register(swUrl)
+                    .then(registration => console.log('Service Worker 등록 성공:', registration))
+                    .catch(error => console.log('Service Worker 등록 실패:', error));
+            }
+        }
+        setupPWA();
+
+        // --- 마인드맵 애플리케이션 코드 (이전과 동일) ---
         const container = document.getElementById('mindmap-container');
         const svg = document.getElementById('mindmap-svg');
         const exportBtn = document.getElementById('export-btn');
@@ -267,24 +328,18 @@
 
         function createNode(text, parentId = null, loadedId = null) {
             const id = loadedId || generateId();
-            if (loadedId) { // 불러온 노드일 경우 카운터 업데이트
+            if (loadedId) {
                 const numericId = parseInt(loadedId.split('-')[1]);
-                if (numericId >= nodeIdCounter) {
-                    nodeIdCounter = numericId + 1;
-                }
+                if (numericId >= nodeIdCounter) nodeIdCounter = numericId + 1;
             }
-
             const nodeElement = document.createElement('div');
             nodeElement.id = id;
             nodeElement.className = 'node';
             nodeElement.innerHTML = `<span>${text}</span>`;
-            
             if (!parentId) nodeElement.classList.add('root');
             container.appendChild(nodeElement);
-
             const nodeData = { id, text, parentId, children: [], element: nodeElement, x: 0, y: 0, direction: 1 };
             nodes.push(nodeData);
-
             if (parentId) {
                 const parentNode = findNodeById(parentId);
                 if (parentNode) {
@@ -297,32 +352,20 @@
         }
 
         function addNodeEventListeners(nodeElement) {
-            // 더블클릭 (데스크탑)
             nodeElement.addEventListener('dblclick', (e) => { e.stopPropagation(); editNodeText(nodeElement.id); });
-            
-            // 길게 누르기 (모바일)
             let longPressTimer;
             nodeElement.addEventListener('touchstart', (e) => {
                 if (e.touches.length > 1) return;
-                longPressTimer = setTimeout(() => {
-                    e.preventDefault();
-                    editNodeText(nodeElement.id);
-                }, 500); // 0.5초
+                longPressTimer = setTimeout(() => { e.preventDefault(); editNodeText(nodeElement.id); }, 500);
             }, { passive: false });
             nodeElement.addEventListener('touchend', () => clearTimeout(longPressTimer));
             nodeElement.addEventListener('touchmove', () => clearTimeout(longPressTimer));
-
-
-            // 클릭 (선택)
             nodeElement.addEventListener('click', (e) => { e.stopPropagation(); selectNode(nodeElement.id); });
-
-            // 드래그 앤 드롭 (데스크탑)
             nodeElement.setAttribute('draggable', true);
             nodeElement.addEventListener('dragstart', (e) => {
                 e.stopPropagation();
-                if(findNodeById(nodeElement.id)?.parentId) {
-                   e.dataTransfer.setData('text/plain', nodeElement.id);
-                } else { e.preventDefault(); }
+                if(findNodeById(nodeElement.id)?.parentId) e.dataTransfer.setData('text/plain', nodeElement.id);
+                else e.preventDefault();
             });
             nodeElement.addEventListener('dragover', (e) => { e.preventDefault(); e.stopPropagation(); });
             nodeElement.addEventListener('drop', (e) => {
@@ -336,9 +379,7 @@
         }
         
         function selectNode(id) {
-            if (selectedNodeId) {
-                findNodeById(selectedNodeId)?.element.classList.remove('selected');
-            }
+            if (selectedNodeId) findNodeById(selectedNodeId)?.element.classList.remove('selected');
             const newSelectedNode = findNodeById(id);
             if(newSelectedNode) {
                 newSelectedNode.element.classList.add('selected');
@@ -361,10 +402,9 @@
             const input = document.createElement('input');
             input.type = 'text';
             input.value = node.text;
-            if (node.element.classList.contains('root')) { input.style.color = 'white'; }
+            if (node.element.classList.contains('root')) input.style.color = 'white';
             node.element.replaceChild(input, span);
             input.focus(); input.select();
-            
             const finishEditing = () => {
                 const newText = input.value.trim() || '새 노드';
                 if (node.element.contains(input)) {
@@ -375,30 +415,19 @@
                     reorganizeLayout(); 
                 }
             };
-
             input.addEventListener('blur', finishEditing);
             input.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.stopPropagation(); 
-                    finishEditing();
-                } else if (e.key === 'Escape') {
-                    if (node.element.contains(input)) {
-                        node.element.replaceChild(span, input);
-                    }
-                }
+                if (e.key === 'Enter') { e.stopPropagation(); finishEditing(); }
+                else if (e.key === 'Escape') { if (node.element.contains(input)) node.element.replaceChild(span, input); }
             });
         }
         
         function deleteNode(nodeId) {
             const nodeToDelete = findNodeById(nodeId);
             if (!nodeToDelete) return;
-            
             [...nodeToDelete.children].forEach(childId => deleteNode(childId));
-            
             const parent = findParent(nodeId);
-            if (parent) {
-                parent.children = parent.children.filter(id => id !== nodeId);
-            }
+            if (parent) parent.children = parent.children.filter(id => id !== nodeId);
             nodeToDelete.element.remove();
             nodes = nodes.filter(n => n.id !== nodeId);
         }
@@ -408,16 +437,11 @@
             const newParent = findNodeById(newParentId);
             if (!nodeToMove || !newParent) return;
             const oldParent = findParent(nodeId);
-            if (oldParent) {
-                oldParent.children = oldParent.children.filter(id => id !== nodeId);
-            }
+            if (oldParent) oldParent.children = oldParent.children.filter(id => id !== nodeId);
             nodeToMove.parentId = newParentId;
             newParent.children.push(nodeId);
-            if (newParent.parentId === null) {
-                balanceRootChildren();
-            } else {
-                 nodeToMove.direction = newParent.direction;
-            }
+            if (newParent.parentId === null) balanceRootChildren();
+            else nodeToMove.direction = newParent.direction;
             reorganizeLayout();
         }
 
@@ -433,25 +457,24 @@
             if (!root) return;
             const containerCenterX = container.scrollWidth / 2;
             const containerCenterY = container.clientHeight / 2;
-            root.x = containerCenterX;
-            root.y = containerCenterY;
+            root.x = containerCenterX; root.y = containerCenterY;
             root.element.style.left = `${root.x - root.element.offsetWidth / 2}px`;
             root.element.style.top = `${root.y - root.element.offsetHeight / 2}px`;
             const leftChildren = root.children.map(findNodeById).filter(n => n.direction === -1);
             const rightChildren = root.children.map(findNodeById).filter(n => n.direction === 1);
             const rightTreeHeight = calculateTotalSubtreeHeight(rightChildren);
-            let currentY = root.y - rightTreeHeight / 2;
+            let currentYRight = root.y - rightTreeHeight / 2;
             rightChildren.forEach(child => {
                 const childSubtreeHeight = calculateSubtreeHeight(child.id);
-                positionNodesRecursively(child.id, root.x, currentY + childSubtreeHeight / 2);
-                currentY += childSubtreeHeight;
+                positionNodesRecursively(child.id, root.x, currentYRight + childSubtreeHeight / 2);
+                currentYRight += childSubtreeHeight;
             });
             const leftTreeHeight = calculateTotalSubtreeHeight(leftChildren);
-            currentY = root.y - leftTreeHeight / 2;
+            let currentYLeft = root.y - leftTreeHeight / 2;
             leftChildren.forEach(child => {
                 const childSubtreeHeight = calculateSubtreeHeight(child.id);
-                positionNodesRecursively(child.id, root.x, currentY + childSubtreeHeight / 2);
-                currentY += childSubtreeHeight;
+                positionNodesRecursively(child.id, root.x, currentYLeft + childSubtreeHeight / 2);
+                currentYLeft += childSubtreeHeight;
             });
             updateLines();
         }
@@ -464,8 +487,7 @@
             const direction = node.direction;
             const x = parentX + direction * (parent.element.offsetWidth / 2 + HORIZONTAL_GAP);
             const subtreeHeight = calculateSubtreeHeight(nodeId);
-            node.x = x;
-            node.y = y;
+            node.x = x; node.y = y;
             node.element.style.left = `${x - node.element.offsetWidth / 2}px`;
             node.element.style.top = `${y - node.element.offsetHeight / 2}px`;
             const children = node.children.map(findNodeById);
@@ -478,10 +500,7 @@
             });
         }
         
-        function calculateTotalSubtreeHeight(nodeArray) {
-            return nodeArray.reduce((acc, node) => acc + calculateSubtreeHeight(node.id), 0);
-        }
-
+        function calculateTotalSubtreeHeight(nodeArray) { return nodeArray.reduce((acc, node) => acc + calculateSubtreeHeight(node.id), 0); }
         function calculateSubtreeHeight(nodeId) {
             const node = findNodeById(nodeId);
             if (!node) return 0;
@@ -497,16 +516,11 @@
                     if (parent) {
                         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
                         const dir = node.direction;
-                        const x1 = parent.x + dir * parent.element.offsetWidth / 2;
-                        const y1 = parent.y;
-                        const x2 = node.x - dir * node.element.offsetWidth / 2;
-                        const y2 = node.y;
-                        const controlX1 = x1 + dir * (HORIZONTAL_GAP / 2);
-                        const controlY1 = y1;
-                        const controlX2 = x2 - dir * (HORIZONTAL_GAP / 2);
-                        const controlY2 = y2;
-                        const d = `M ${x1},${y1} C ${controlX1},${controlY1} ${controlX2},${controlY2} ${x2},${y2}`;
-                        path.setAttribute('d', d);
+                        const x1 = parent.x + dir * parent.element.offsetWidth / 2; const y1 = parent.y;
+                        const x2 = node.x - dir * node.element.offsetWidth / 2; const y2 = node.y;
+                        const controlX1 = x1 + dir * (HORIZONTAL_GAP / 2); const controlY1 = y1;
+                        const controlX2 = x2 - dir * (HORIZONTAL_GAP / 2); const controlY2 = y2;
+                        path.setAttribute('d', `M ${x1},${y1} C ${controlX1},${controlY1} ${controlX2},${controlY2} ${x2},${y2}`);
                         svg.appendChild(path);
                     }
                 }
@@ -516,13 +530,11 @@
         function balanceRootChildren() {
             const root = nodes.find(n => !n.parentId);
             if (!root) return;
-            const children = root.children.map(findNodeById);
-            children.forEach((child, index) => { child.direction = (index % 2 === 0) ? 1 : -1; });
+            root.children.map(findNodeById).forEach((child, index) => { child.direction = (index % 2 === 0) ? 1 : -1; });
         }
         
         document.addEventListener('keydown', (e) => {
-            if (e.target.tagName === 'INPUT') return;
-            if (!selectedNodeId) return;
+            if (e.target.tagName === 'INPUT' || !selectedNodeId) return;
             const selectedNode = findNodeById(selectedNodeId);
             if (!selectedNode) return;
             const arrowKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
@@ -559,155 +571,108 @@
                 case 'Delete': case 'Backspace':
                      e.preventDefault();
                      if (selectedNode.parentId) {
-                        const parent = findParent(selectedNodeId);
-                        deleteNode(selectedNodeId);
-                        selectedNodeId = null;
-                        reorganizeLayout();
-                        if (parent) selectNode(parent.id);
-                     }
-                    break;
+                        const parent = findParent(selectedNodeId); deleteNode(selectedNodeId); selectedNodeId = null;
+                        reorganizeLayout(); if (parent) selectNode(parent.id);
+                     } break;
                 case 'Tab': e.preventDefault();
                     let newNodeTab;
-                    if (selectedNode.parentId === null) {
-                        newNodeTab = createNode('새 노드', selectedNodeId);
-                        balanceRootChildren();
-                    } else { newNodeTab = createNode('새 노드', selectedNodeId); }
-                    reorganizeLayout(); selectNode(newNodeTab.id); editNodeText(newNodeTab.id);
-                    break;
+                    if (selectedNode.parentId === null) { newNodeTab = createNode('새 노드', selectedNodeId); balanceRootChildren(); }
+                    else { newNodeTab = createNode('새 노드', selectedNodeId); }
+                    reorganizeLayout(); selectNode(newNodeTab.id); editNodeText(newNodeTab.id); break;
                 case 'Enter': e.preventDefault();
                     if (selectedNode.parentId) {
                         const parent = findParent(selectedNodeId);
                         const newNodeEnter = createNode('새 노드', parent.id);
                         if (parent.parentId === null) balanceRootChildren();
                         reorganizeLayout(); selectNode(newNodeEnter.id); editNodeText(newNodeEnter.id);
-                    }
-                    break;
+                    } break;
             }
-            if (e.ctrlKey || e.metaKey) {
-                if (e.key === 'x' && selectedNode.parentId) {
-                    clipboardNodeData = selectedNode.id;
-                    selectedNode.element.style.opacity = '0.3';
-                } else if (e.key === 'v' && clipboardNodeData) {
+            if ((e.ctrlKey || e.metaKey) && selectedNode.parentId) {
+                if (e.key === 'x') { clipboardNodeData = selectedNode.id; selectedNode.element.style.opacity = '0.3'; }
+                else if (e.key === 'v' && clipboardNodeData) {
                     const nodeToPaste = findNodeById(clipboardNodeData);
                     if (nodeToPaste && selectedNodeId !== clipboardNodeData && !isAncestor(clipboardNodeData, selectedNodeId)) {
-                        moveNode(clipboardNodeData, selectedNodeId);
-                        nodeToPaste.element.style.opacity = '1';
-                        clipboardNodeData = null;
+                        moveNode(clipboardNodeData, selectedNodeId); nodeToPaste.element.style.opacity = '1'; clipboardNodeData = null;
                     }
                 }
             }
         });
         
         container.addEventListener('click', (e) => { if (e.target === container) deselectAll(); });
-        centerBtn.addEventListener('click', () => {
-            const root = nodes.find(n => !n.parentId); if (root) selectNode(root.id);
-        });
+        centerBtn.addEventListener('click', () => { const root = nodes.find(n => !n.parentId); if (root) selectNode(root.id); });
 
-        // --- 파일 저장 및 불러오기 ---
         saveMapBtn.addEventListener('click', () => {
             const savableNodes = nodes.map(n => ({ id: n.id, text: n.text, parentId: n.parentId, children: n.children, direction: n.direction }));
             const data = { nodes: savableNodes, nodeIdCounter };
             const jsonString = JSON.stringify(data, null, 2);
             const blob = new Blob([jsonString], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
-            link.href = url;
+            link.href = URL.createObjectURL(blob);
             link.download = 'mindmap.smm';
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            URL.revokeObjectURL(url);
         });
 
         loadMapBtn.addEventListener('click', () => fileInput.click());
         fileInput.addEventListener('change', (event) => {
-            const file = event.target.files[0];
-            if (!file) return;
+            const file = event.target.files[0]; if (!file) return;
             const reader = new FileReader();
             reader.onload = (e) => {
                 try {
                     const data = JSON.parse(e.target.result);
-                    if (data && data.nodes) rebuildMapFromData(data);
-                    else alert('잘못된 파일 형식입니다.');
+                    if (data && data.nodes) rebuildMapFromData(data); else alert('잘못된 파일 형식입니다.');
                 } catch (err) { alert('파일을 불러오는 중 오류가 발생했습니다.'); }
             };
-            reader.readAsText(file);
-            fileInput.value = '';
+            reader.readAsText(file); fileInput.value = '';
         });
 
         function rebuildMapFromData(data) {
             container.querySelectorAll('.node, #mindmap-svg > *').forEach(el => el.remove());
-            nodes = [];
-            selectedNodeId = null;
-            nodeIdCounter = 0;
-
-            const nodeDataMap = new Map(data.nodes.map(n => [n.id, n]));
-            
-            function buildNodeTree(nodeData) {
-                const { id, text, parentId, children } = nodeData;
+            nodes = []; selectedNodeId = null; nodeIdCounter = data.nodeIdCounter || 0;
+            data.nodes.forEach(nodeData => {
+                const { id, text, parentId } = nodeData;
                 createNode(text, parentId, id);
-                if (children) {
-                    children.forEach(childId => {
-                        const childData = nodeDataMap.get(childId);
-                        if (childData) buildNodeTree(childData);
-                    });
-                }
-            }
-
-            const rootData = data.nodes.find(n => !n.parentId);
-            if (rootData) {
-                buildNodeTree(rootData);
-                balanceRootChildren();
-                reorganizeLayout();
-                selectNode(rootData.id);
-            }
+            });
+            balanceRootChildren();
+            reorganizeLayout();
+            const root = data.nodes.find(n => !n.parentId);
+            if(root) selectNode(root.id);
         }
 
         exportBtn.addEventListener('click', () => {
             const selectedElem = document.querySelector('.node.selected');
             if (selectedElem) selectedElem.classList.remove('selected');
-            watermark.style.display = 'none';
-            helpBox.style.display = 'none';
+            watermark.style.display = 'none'; helpBox.style.display = 'none';
             const { scrollLeft, scrollTop } = container;
             container.scrollTo(0, 0);
             html2canvas(container, {
-                backgroundColor: '#fdfdfd',
-                scale: window.devicePixelRatio,
-                width: container.scrollWidth,
-                height: container.scrollHeight,
-                windowWidth: container.scrollWidth,
-                windowHeight: container.scrollHeight,
+                backgroundColor: '#fdfdfd', scale: window.devicePixelRatio,
+                width: container.scrollWidth, height: container.scrollHeight,
+                windowWidth: container.scrollWidth, windowHeight: container.scrollHeight,
             }).then(canvas => {
                 const link = document.createElement('a');
-                link.href = canvas.toDataURL('image/png');
-                link.download = 'mindmap.png';
+                link.href = canvas.toDataURL('image/png'); link.download = 'mindmap.png';
                 link.click();
                 if (selectedElem) selectedElem.classList.add('selected');
-                watermark.style.display = 'block';
-                helpBox.style.display = 'block';
+                watermark.style.display = 'block'; helpBox.style.display = 'block';
                 container.scrollTo(scrollLeft, scrollTop);
             });
         });
 
-        // --- 모바일 터치 핸들러 ---
         let isPanning = false; let lastPanX, lastPanY;
         container.addEventListener('touchstart', (e) => {
             if (e.target === container || e.target === svg) {
-                isPanning = true;
-                const touch = e.touches[0];
-                lastPanX = touch.clientX;
-                lastPanY = touch.clientY;
+                isPanning = true; const touch = e.touches[0];
+                lastPanX = touch.clientX; lastPanY = touch.clientY;
             }
         }, { passive: true });
         container.addEventListener('touchmove', (e) => {
             if (!isPanning || !e.touches[0]) return;
             const touch = e.touches[0];
-            const dx = touch.clientX - lastPanX;
-            const dy = touch.clientY - lastPanY;
-            container.scrollLeft -= dx;
-            container.scrollTop -= dy;
-            lastPanX = touch.clientX;
-            lastPanY = touch.clientY;
+            const dx = touch.clientX - lastPanX; const dy = touch.clientY - lastPanY;
+            container.scrollLeft -= dx; container.scrollTop -= dy;
+            lastPanX = touch.clientX; lastPanY = touch.clientY;
         }, { passive: true });
         container.addEventListener('touchend', () => { isPanning = false; });
         
