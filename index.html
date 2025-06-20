@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>심플 마인드맵 v6</title>
+    <title>심플 마인드맵 v7</title>
     <!-- PWA 테마 색상 및 아이콘 설정 -->
     <meta name="theme-color" content="#4a90e2"/>
     <link rel="apple-touch-icon" href="https://placehold.co/192x192/4a90e2/ffffff?text=SMM">
@@ -167,8 +167,8 @@
             z-index: 10;
             font-size: 14px;
             color: #555;
-            pointer-events: none;
         }
+        
         #help-box strong {
             display: block;
             margin-bottom: 10px;
@@ -188,6 +188,33 @@
             border: 1px solid #dcdcdc;
             color: #333;
         }
+
+        /* 모바일 터치 메뉴 스타일 */
+        #touch-menu {
+            position: absolute;
+            display: none;
+            flex-direction: column;
+            gap: 8px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            padding: 8px;
+            z-index: 20;
+        }
+        #touch-menu button {
+            background: #f0f0f0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            font-size: 14px;
+            cursor: pointer;
+            width: 120px;
+            text-align: left;
+        }
+        #touch-menu button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
         
         /* 모바일 반응형 스타일 */
         @media (max-width: 768px) {
@@ -204,12 +231,8 @@
                 left: 10px;
             }
             #help-box {
-                top: 55px;
-                left: 10px;
-                padding: 10px;
-                font-size: 12px;
+                display: none; /* 모바일에서는 숨김 */
             }
-             #help-box strong { font-size: 14px; }
         }
 
     </style>
@@ -244,74 +267,57 @@
             <li><span>더블클릭/길게누르기</span>: 수정</li>
         </ul>
     </div>
-
+    
+    <div id="touch-menu">
+        <button id="touch-add-child">+ 자식 추가</button>
+        <button id="touch-add-sibling">+ 형제 추가</button>
+        <button id="touch-delete">삭제</button>
+    </div>
 
     <script>
+        const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
         // --- PWA 설정 ---
         function setupPWA() {
-            // 1. Manifest 파일 동적 생성
             const manifestData = {
-                "name": "심플 마인드맵",
-                "short_name": "마인드맵",
-                "start_url": ".",
-                "display": "standalone",
-                "background_color": "#fdfdfd",
-                "theme_color": "#4a90e2",
+                "name": "심플 마인드맵", "short_name": "마인드맵", "start_url": ".",
+                "display": "standalone", "background_color": "#fdfdfd", "theme_color": "#4a90e2",
                 "description": "간단하고 빠른 웹 기반 마인드맵 애플리케이션",
                 "icons": [
                     { "src": "https://placehold.co/192x192/4a90e2/ffffff?text=SMM", "sizes": "192x192", "type": "image/png" },
                     { "src": "https://placehold.co/512x512/4a90e2/ffffff?text=SMM", "sizes": "512x512", "type": "image/png" }
                 ]
             };
-            const manifestString = JSON.stringify(manifestData);
-            const manifestBlob = new Blob([manifestString], { type: 'application/json' });
-            const manifestUrl = URL.createObjectURL(manifestBlob);
-            document.getElementById('manifest').href = manifestUrl;
-
-            // 2. Service Worker 등록
+            const manifestBlob = new Blob([JSON.stringify(manifestData)], { type: 'application/json' });
+            document.getElementById('manifest').href = URL.createObjectURL(manifestBlob);
             if ('serviceWorker' in navigator) {
                 const swCode = `
                     const CACHE_NAME = 'simple-mindmap-cache-v1';
-                    const urlsToCache = [
-                        '/',
-                        '/index.html', // 만약 파일 이름이 다르다면 이 부분을 수정해야 합니다.
-                        'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'
-                    ];
-                    self.addEventListener('install', event => {
-                        event.waitUntil(
-                            caches.open(CACHE_NAME)
-                                .then(cache => cache.addAll(urlsToCache))
-                        );
-                    });
-                    self.addEventListener('fetch', event => {
-                        event.respondWith(
-                            caches.match(event.request)
-                                .then(response => {
-                                    return response || fetch(event.request);
-                                })
-                        );
-                    });
+                    self.addEventListener('install', e => e.waitUntil(caches.open(CACHE_NAME)));
+                    self.addEventListener('fetch', e => e.respondWith(caches.match(e.request).then(r => r || fetch(e.request))));
                 `;
                 const swBlob = new Blob([swCode], { type: 'application/javascript' });
-                const swUrl = URL.createObjectURL(swBlob);
-                navigator.serviceWorker.register(swUrl)
-                    .then(registration => console.log('Service Worker 등록 성공:', registration))
-                    .catch(error => console.log('Service Worker 등록 실패:', error));
+                navigator.serviceWorker.register(URL.createObjectURL(swBlob))
+                    .then(reg => console.log('Service Worker 등록 성공:', reg))
+                    .catch(err => console.log('Service Worker 등록 실패:', err));
             }
         }
         setupPWA();
 
-        // --- 마인드맵 애플리케이션 코드 (이전과 동일) ---
+        // --- DOM 요소 가져오기 ---
         const container = document.getElementById('mindmap-container');
         const svg = document.getElementById('mindmap-svg');
         const exportBtn = document.getElementById('export-btn');
         const centerBtn = document.getElementById('center-btn');
-        const watermark = document.getElementById('watermark');
-        const helpBox = document.getElementById('help-box');
         const saveMapBtn = document.getElementById('save-map-btn');
         const loadMapBtn = document.getElementById('load-map-btn');
         const fileInput = document.getElementById('file-input');
+        const touchMenu = document.getElementById('touch-menu');
+        const touchAddChildBtn = document.getElementById('touch-add-child');
+        const touchAddSiblingBtn = document.getElementById('touch-add-sibling');
+        const touchDeleteBtn = document.getElementById('touch-delete');
 
+        // --- 상태 변수 ---
         let nodes = [];
         let selectedNodeId = null;
         let clipboardNodeData = null; 
@@ -319,6 +325,7 @@
         const HORIZONTAL_GAP = 120;
         const VERTICAL_GAP = 20;
 
+        // --- 핵심 함수 ---
         function generateId() { return `node-${nodeIdCounter++}`; }
         function findNodeById(id) { return nodes.find(n => n.id === id) || null; }
         function findParent(childId) {
@@ -329,12 +336,11 @@
         function createNode(text, parentId = null, loadedId = null) {
             const id = loadedId || generateId();
             if (loadedId) {
-                const numericId = parseInt(loadedId.split('-')[1]);
+                const numericId = parseInt(id.split('-')[1]);
                 if (numericId >= nodeIdCounter) nodeIdCounter = numericId + 1;
             }
             const nodeElement = document.createElement('div');
-            nodeElement.id = id;
-            nodeElement.className = 'node';
+            nodeElement.id = id; nodeElement.className = 'node';
             nodeElement.innerHTML = `<span>${text}</span>`;
             if (!parentId) nodeElement.classList.add('root');
             container.appendChild(nodeElement);
@@ -342,30 +348,29 @@
             nodes.push(nodeData);
             if (parentId) {
                 const parentNode = findNodeById(parentId);
-                if (parentNode) {
-                    parentNode.children.push(id);
-                    nodeData.direction = parentNode.direction;
-                }
+                if (parentNode) { parentNode.children.push(id); nodeData.direction = parentNode.direction; }
             }
             addNodeEventListeners(nodeElement);
             return nodeData;
         }
 
         function addNodeEventListeners(nodeElement) {
-            nodeElement.addEventListener('dblclick', (e) => { e.stopPropagation(); editNodeText(nodeElement.id); });
-            let longPressTimer;
-            nodeElement.addEventListener('touchstart', (e) => {
-                if (e.touches.length > 1) return;
-                longPressTimer = setTimeout(() => { e.preventDefault(); editNodeText(nodeElement.id); }, 500);
-            }, { passive: false });
-            nodeElement.addEventListener('touchend', () => clearTimeout(longPressTimer));
-            nodeElement.addEventListener('touchmove', () => clearTimeout(longPressTimer));
+            if (isMobile) {
+                let longPressTimer;
+                nodeElement.addEventListener('touchstart', (e) => {
+                    if (e.touches.length > 1) return;
+                    longPressTimer = setTimeout(() => { e.preventDefault(); editNodeText(nodeElement.id); }, 500);
+                }, { passive: false });
+                nodeElement.addEventListener('touchend', () => clearTimeout(longPressTimer));
+                nodeElement.addEventListener('touchmove', () => clearTimeout(longPressTimer));
+            } else {
+                nodeElement.addEventListener('dblclick', (e) => { e.stopPropagation(); editNodeText(nodeElement.id); });
+            }
             nodeElement.addEventListener('click', (e) => { e.stopPropagation(); selectNode(nodeElement.id); });
             nodeElement.setAttribute('draggable', true);
             nodeElement.addEventListener('dragstart', (e) => {
                 e.stopPropagation();
-                if(findNodeById(nodeElement.id)?.parentId) e.dataTransfer.setData('text/plain', nodeElement.id);
-                else e.preventDefault();
+                if(findNodeById(nodeElement.id)?.parentId) e.dataTransfer.setData('text/plain', nodeElement.id); else e.preventDefault();
             });
             nodeElement.addEventListener('dragover', (e) => { e.preventDefault(); e.stopPropagation(); });
             nodeElement.addEventListener('drop', (e) => {
@@ -378,13 +383,20 @@
             });
         }
         
-        function selectNode(id) {
-            if (selectedNodeId) findNodeById(selectedNodeId)?.element.classList.remove('selected');
+        function selectNode(id, behavior = 'smooth') {
+            if (selectedNodeId) {
+                findNodeById(selectedNodeId)?.element.classList.remove('selected');
+            }
+            if (isMobile) touchMenu.style.display = 'none';
+
             const newSelectedNode = findNodeById(id);
             if(newSelectedNode) {
                 newSelectedNode.element.classList.add('selected');
                 selectedNodeId = id;
-                newSelectedNode.element.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+                newSelectedNode.element.scrollIntoView({ behavior: behavior, block: 'center', inline: 'center' });
+                if (isMobile) {
+                    showTouchMenu(newSelectedNode);
+                }
             }
         }
         
@@ -393,297 +405,213 @@
                 findNodeById(selectedNodeId)?.element.classList.remove('selected');
                 selectedNodeId = null;
             }
+            if (isMobile) touchMenu.style.display = 'none';
         }
 
-        function editNodeText(id) {
-            const node = findNodeById(id);
-            if (!node) return;
-            const span = node.element.querySelector('span');
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.value = node.text;
-            if (node.element.classList.contains('root')) input.style.color = 'white';
-            node.element.replaceChild(input, span);
-            input.focus(); input.select();
-            const finishEditing = () => {
-                const newText = input.value.trim() || '새 노드';
-                if (node.element.contains(input)) {
-                    node.text = newText;
-                    const newSpan = document.createElement('span');
-                    newSpan.textContent = node.text;
-                    node.element.replaceChild(newSpan, input);
-                    reorganizeLayout(); 
+        function showTouchMenu(node) {
+            touchMenu.style.display = 'flex';
+            const isRoot = !node.parentId;
+            touchAddSiblingBtn.disabled = isRoot;
+            touchDeleteBtn.disabled = isRoot;
+
+            const nodeRect = node.element.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
+            
+            let top = nodeRect.top - containerRect.top + container.scrollTop + nodeRect.height / 2 - touchMenu.offsetHeight / 2;
+            let left = nodeRect.right - containerRect.left + container.scrollLeft + 15;
+            
+            if (left + touchMenu.offsetWidth > container.scrollWidth) {
+                left = nodeRect.left - containerRect.left + container.scrollLeft - touchMenu.offsetWidth - 15;
+            }
+            if (top < container.scrollTop + 10) top = container.scrollTop + 10;
+            if (top + touchMenu.offsetHeight > container.scrollTop + container.clientHeight) {
+                top = container.scrollTop + container.clientHeight - touchMenu.offsetHeight - 10;
+            }
+            touchMenu.style.top = `${top}px`;
+            touchMenu.style.left = `${left}px`;
+        }
+        
+        function editNodeText(id){
+            const node=findNodeById(id);if(!node)return;
+            const span=node.element.querySelector('span');
+            const input=document.createElement('input');input.type='text';input.value=node.text;
+            if(node.element.classList.contains('root'))input.style.color='white';
+            node.element.replaceChild(input,span);input.focus();input.select();
+            const finishEditing=()=>{
+                const newText=input.value.trim()||'새 노드';
+                if(node.element.contains(input)){
+                    node.text=newText;
+                    const newSpan=document.createElement('span');newSpan.textContent=node.text;
+                    node.element.replaceChild(newSpan,input);reorganizeLayout()
                 }
             };
-            input.addEventListener('blur', finishEditing);
-            input.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') { e.stopPropagation(); finishEditing(); }
-                else if (e.key === 'Escape') { if (node.element.contains(input)) node.element.replaceChild(span, input); }
+            input.addEventListener('blur',finishEditing);
+            input.addEventListener('keydown',e=>{
+                if(e.key==='Enter'){e.stopPropagation();finishEditing()}
+                else if(e.key==='Escape'){if(node.element.contains(input))node.element.replaceChild(span,input)}
             });
         }
         
-        function deleteNode(nodeId) {
-            const nodeToDelete = findNodeById(nodeId);
-            if (!nodeToDelete) return;
-            [...nodeToDelete.children].forEach(childId => deleteNode(childId));
-            const parent = findParent(nodeId);
-            if (parent) parent.children = parent.children.filter(id => id !== nodeId);
+        function deleteNode(id){
+            const nodeToDelete=findNodeById(id);if(!nodeToDelete)return;
+            [...nodeToDelete.children].forEach(childId=>deleteNode(childId));
+            const parent=findParent(id);
+            if(parent)parent.children=parent.children.filter(childId=>childId!==id);
             nodeToDelete.element.remove();
-            nodes = nodes.filter(n => n.id !== nodeId);
+            nodes=nodes.filter(n=>n.id!==id);
         }
 
-        function moveNode(nodeId, newParentId) {
-            const nodeToMove = findNodeById(nodeId);
-            const newParent = findNodeById(newParentId);
-            if (!nodeToMove || !newParent) return;
-            const oldParent = findParent(nodeId);
-            if (oldParent) oldParent.children = oldParent.children.filter(id => id !== nodeId);
-            nodeToMove.parentId = newParentId;
-            newParent.children.push(nodeId);
-            if (newParent.parentId === null) balanceRootChildren();
-            else nodeToMove.direction = newParent.direction;
-            reorganizeLayout();
+        function moveNode(id,newParentId){
+            const nodeToMove=findNodeById(id);const newParent=findNodeById(newParentId);
+            if(!nodeToMove||!newParent)return;const oldParent=findParent(id);
+            if(oldParent)oldParent.children=oldParent.children.filter(childId=>childId!==id);
+            nodeToMove.parentId=newParentId;newParent.children.push(id);
+            if(newParent.parentId===null)balanceRootChildren();
+            else nodeToMove.direction=newParent.direction;reorganizeLayout();
         }
 
-        function isAncestor(potentialAncestorId, childId) {
-            const childNode = findNodeById(childId);
-            if (!childNode || !childNode.parentId) return false;
-            if (childNode.parentId === potentialAncestorId) return true;
-            return isAncestor(potentialAncestorId, childNode.parentId);
+        function isAncestor(id1,id2){
+            const childNode=findNodeById(id2);
+            if(!childNode||!childNode.parentId)return false;
+            if(childNode.parentId===id1)return true;
+            return isAncestor(id1,childNode.parentId);
         }
 
-        function reorganizeLayout() {
-            const root = nodes.find(n => !n.parentId);
-            if (!root) return;
-            const containerCenterX = container.scrollWidth / 2;
-            const containerCenterY = container.clientHeight / 2;
-            root.x = containerCenterX; root.y = containerCenterY;
-            root.element.style.left = `${root.x - root.element.offsetWidth / 2}px`;
-            root.element.style.top = `${root.y - root.element.offsetHeight / 2}px`;
-            const leftChildren = root.children.map(findNodeById).filter(n => n.direction === -1);
-            const rightChildren = root.children.map(findNodeById).filter(n => n.direction === 1);
-            const rightTreeHeight = calculateTotalSubtreeHeight(rightChildren);
-            let currentYRight = root.y - rightTreeHeight / 2;
-            rightChildren.forEach(child => {
-                const childSubtreeHeight = calculateSubtreeHeight(child.id);
-                positionNodesRecursively(child.id, root.x, currentYRight + childSubtreeHeight / 2);
-                currentYRight += childSubtreeHeight;
-            });
-            const leftTreeHeight = calculateTotalSubtreeHeight(leftChildren);
-            let currentYLeft = root.y - leftTreeHeight / 2;
-            leftChildren.forEach(child => {
-                const childSubtreeHeight = calculateSubtreeHeight(child.id);
-                positionNodesRecursively(child.id, root.x, currentYLeft + childSubtreeHeight / 2);
-                currentYLeft += childSubtreeHeight;
-            });
+        function reorganizeLayout(){
+            const root=nodes.find(n=>!n.parentId);if(!root)return;
+            const centerX=container.scrollWidth/2;const centerY=container.clientHeight/2;
+            root.x=centerX;root.y=centerY;
+            root.element.style.left=`${root.x-root.element.offsetWidth/2}px`;
+            root.element.style.top=`${root.y-root.element.offsetHeight/2}px`;
+            const leftChildren=root.children.map(findNodeById).filter(n=>n.direction===-1);
+            const rightChildren=root.children.map(findNodeById).filter(n=>n.direction===1);
+            let currentYRight=root.y-calculateTotalSubtreeHeight(rightChildren)/2;
+            rightChildren.forEach(child=>{
+                const h=calculateSubtreeHeight(child.id);positionNodesRecursively(child.id,root.x,currentYRight+h/2);currentYRight+=h});
+            let currentYLeft=root.y-calculateTotalSubtreeHeight(leftChildren)/2;
+            leftChildren.forEach(child=>{
+                const h=calculateSubtreeHeight(child.id);positionNodesRecursively(child.id,root.x,currentYLeft+h/2);currentYLeft+=h});
             updateLines();
         }
 
-        function positionNodesRecursively(nodeId, parentX, y) {
-            const node = findNodeById(nodeId);
-            if (!node) return;
-            const parent = findParent(nodeId);
-            if(!parent) return;
-            const direction = node.direction;
-            const x = parentX + direction * (parent.element.offsetWidth / 2 + HORIZONTAL_GAP);
-            const subtreeHeight = calculateSubtreeHeight(nodeId);
-            node.x = x; node.y = y;
-            node.element.style.left = `${x - node.element.offsetWidth / 2}px`;
-            node.element.style.top = `${y - node.element.offsetHeight / 2}px`;
-            const children = node.children.map(findNodeById);
-            if (children.length === 0) return;
-            let currentY = y - subtreeHeight / 2;
-            children.forEach(child => {
-                const childSubtreeHeight = calculateSubtreeHeight(child.id);
-                positionNodesRecursively(child.id, node.x, currentY + childSubtreeHeight / 2);
-                currentY += childSubtreeHeight;
-            });
+        function positionNodesRecursively(id,parentX,y){
+            const node=findNodeById(id);if(!node)return;const parent=findParent(id);if(!parent)return;
+            const x=parentX+node.direction*(parent.element.offsetWidth/2+HORIZONTAL_GAP);
+            const h=calculateSubtreeHeight(id);node.x=x;node.y=y;
+            node.element.style.left=`${x-node.element.offsetWidth/2}px`;
+            node.element.style.top=`${y-node.element.offsetHeight/2}px`;
+            const children=node.children.map(findNodeById);if(children.length===0)return;
+            let currentY=y-h/2;children.forEach(child=>{
+                const childH=calculateSubtreeHeight(child.id);positionNodesRecursively(child.id,node.x,currentY+childH/2);currentY+=childH});
         }
         
-        function calculateTotalSubtreeHeight(nodeArray) { return nodeArray.reduce((acc, node) => acc + calculateSubtreeHeight(node.id), 0); }
-        function calculateSubtreeHeight(nodeId) {
-            const node = findNodeById(nodeId);
-            if (!node) return 0;
-            if (node.children.length === 0) return node.element.offsetHeight + VERTICAL_GAP;
-            return node.children.reduce((total, childId) => total + calculateSubtreeHeight(childId), 0);
+        function calculateTotalSubtreeHeight(arr){return arr.reduce((acc,node)=>acc+calculateSubtreeHeight(node.id),0)}
+        
+        function calculateSubtreeHeight(id){
+            const node=findNodeById(id);if(!node)return 0;
+            if(node.children.length===0)return node.element.offsetHeight+VERTICAL_GAP;
+            return node.children.reduce((total,childId)=>total+calculateSubtreeHeight(childId),0);
         }
 
-        function updateLines() {
-            svg.innerHTML = '';
-            nodes.forEach(node => {
-                if (node.parentId) {
-                    const parent = findNodeById(node.parentId);
-                    if (parent) {
-                        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                        const dir = node.direction;
-                        const x1 = parent.x + dir * parent.element.offsetWidth / 2; const y1 = parent.y;
-                        const x2 = node.x - dir * node.element.offsetWidth / 2; const y2 = node.y;
-                        const controlX1 = x1 + dir * (HORIZONTAL_GAP / 2); const controlY1 = y1;
-                        const controlX2 = x2 - dir * (HORIZONTAL_GAP / 2); const controlY2 = y2;
-                        path.setAttribute('d', `M ${x1},${y1} C ${controlX1},${controlY1} ${controlX2},${controlY2} ${x2},${y2}`);
+        function updateLines(){
+            svg.innerHTML='';
+            nodes.forEach(node=>{
+                if(node.parentId){
+                    const parent=findNodeById(node.parentId);
+                    if(parent){
+                        const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+                        const dir=node.direction;
+                        const x1=parent.x+dir*parent.element.offsetWidth/2,y1=parent.y;
+                        const x2=node.x-dir*node.element.offsetWidth/2,y2=node.y;
+                        const cX1=x1+dir*HORIZONTAL_GAP/2,cY1=y1;
+                        const cX2=x2-dir*HORIZONTAL_GAP/2,cY2=y2;
+                        path.setAttribute('d',`M ${x1},${y1} C ${cX1},${cY1} ${cX2},${cY2} ${x2},${y2}`);
                         svg.appendChild(path);
                     }
                 }
             });
         }
 
-        function balanceRootChildren() {
-            const root = nodes.find(n => !n.parentId);
-            if (!root) return;
-            root.children.map(findNodeById).forEach((child, index) => { child.direction = (index % 2 === 0) ? 1 : -1; });
+        function balanceRootChildren(){
+            const root=nodes.find(n=>!n.parentId);if(!root)return;
+            root.children.map(findNodeById).forEach((child,i)=>{child.direction=i%2===0?1:-1});
         }
         
         document.addEventListener('keydown', (e) => {
             if (e.target.tagName === 'INPUT' || !selectedNodeId) return;
-            const selectedNode = findNodeById(selectedNodeId);
-            if (!selectedNode) return;
+            const selectedNode = findNodeById(selectedNodeId); if (!selectedNode) return;
             const arrowKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
             if (arrowKeys.includes(e.key)) {
                 e.preventDefault();
                 if (selectedNode.parentId === null) {
-                    if (e.key === 'ArrowRight') {
-                        const rightChildren = selectedNode.children.map(findNodeById).filter(n => n.direction === 1);
-                        if (rightChildren.length > 0) selectNode(rightChildren[0].id);
-                    } else if (e.key === 'ArrowLeft') {
-                        const leftChildren = selectedNode.children.map(findNodeById).filter(n => n.direction === -1);
-                        if (leftChildren.length > 0) selectNode(leftChildren[0].id);
-                    }
-                    return;
+                    if (e.key === 'ArrowRight') { const right = selectedNode.children.map(findNodeById).filter(n=>n.direction===1); if (right.length>0) selectNode(right[0].id); }
+                    else if (e.key === 'ArrowLeft') { const left = selectedNode.children.map(findNodeById).filter(n=>n.direction===-1); if (left.length>0) selectNode(left[0].id); } return;
                 }
                 const parent = findParent(selectedNodeId);
-                const siblingsInDirection = parent.children.map(findNodeById).filter(n => n.direction === selectedNode.direction).sort((a, b) => a.y - b.y);
-                const currentIndex = siblingsInDirection.findIndex(n => n.id === selectedNodeId);
+                const siblings = parent.children.map(findNodeById).filter(n => n.direction === selectedNode.direction).sort((a, b) => a.y - b.y);
+                const currentIndex = siblings.findIndex(n => n.id === selectedNodeId);
                 switch (e.key) {
-                    case 'ArrowUp': if (currentIndex > 0) selectNode(siblingsInDirection[currentIndex - 1].id); break;
-                    case 'ArrowDown': if (currentIndex < siblingsInDirection.length - 1) selectNode(siblingsInDirection[currentIndex + 1].id); break;
-                    case 'ArrowLeft':
-                        if (selectedNode.direction === 1) selectNode(parent.id);
-                        else if (selectedNode.children.length > 0) selectNode(selectedNode.children[0].id);
-                        break;
-                    case 'ArrowRight':
-                        if (selectedNode.direction === -1) selectNode(parent.id);
-                        else if (selectedNode.children.length > 0) selectNode(selectedNode.children[0].id);
-                        break;
-                }
-                return;
+                    case 'ArrowUp': if (currentIndex > 0) selectNode(siblings[currentIndex - 1].id); break;
+                    case 'ArrowDown': if (currentIndex < siblings.length - 1) selectNode(siblings[currentIndex + 1].id); break;
+                    case 'ArrowLeft': (selectedNode.direction === 1) ? selectNode(parent.id) : (selectedNode.children.length > 0 && selectNode(selectedNode.children[0].id)); break;
+                    case 'ArrowRight': (selectedNode.direction === -1) ? selectNode(parent.id) : (selectedNode.children.length > 0 && selectNode(selectedNode.children[0].id)); break;
+                } return;
             }
             switch (e.key) {
-                case 'Delete': case 'Backspace':
-                     e.preventDefault();
-                     if (selectedNode.parentId) {
-                        const parent = findParent(selectedNodeId); deleteNode(selectedNodeId); selectedNodeId = null;
-                        reorganizeLayout(); if (parent) selectNode(parent.id);
-                     } break;
-                case 'Tab': e.preventDefault();
-                    let newNodeTab;
-                    if (selectedNode.parentId === null) { newNodeTab = createNode('새 노드', selectedNodeId); balanceRootChildren(); }
-                    else { newNodeTab = createNode('새 노드', selectedNodeId); }
-                    reorganizeLayout(); selectNode(newNodeTab.id); editNodeText(newNodeTab.id); break;
-                case 'Enter': e.preventDefault();
-                    if (selectedNode.parentId) {
-                        const parent = findParent(selectedNodeId);
-                        const newNodeEnter = createNode('새 노드', parent.id);
-                        if (parent.parentId === null) balanceRootChildren();
-                        reorganizeLayout(); selectNode(newNodeEnter.id); editNodeText(newNodeEnter.id);
-                    } break;
+                case 'Delete': case 'Backspace': e.preventDefault(); if (selectedNode.parentId) { const p = findParent(selectedNodeId); deleteNode(selectedNodeId); selectedNodeId = null; reorganizeLayout(); if (p) selectNode(p.id); } break;
+                case 'Tab': e.preventDefault(); let nT; if (selectedNode.parentId === null) { nT = createNode('새 노드', selectedNodeId); balanceRootChildren(); } else { nT = createNode('새 노드', selectedNodeId); } reorganizeLayout(); selectNode(nT.id); editNodeText(nT.id); break;
+                case 'Enter': e.preventDefault(); if (selectedNode.parentId) { const p = findParent(selectedNodeId); const nE = createNode('새 노드', p.id); if (p.parentId === null) balanceRootChildren(); reorganizeLayout(); selectNode(nE.id); editNodeText(nE.id); } break;
             }
             if ((e.ctrlKey || e.metaKey) && selectedNode.parentId) {
                 if (e.key === 'x') { clipboardNodeData = selectedNode.id; selectedNode.element.style.opacity = '0.3'; }
-                else if (e.key === 'v' && clipboardNodeData) {
-                    const nodeToPaste = findNodeById(clipboardNodeData);
-                    if (nodeToPaste && selectedNodeId !== clipboardNodeData && !isAncestor(clipboardNodeData, selectedNodeId)) {
-                        moveNode(clipboardNodeData, selectedNodeId); nodeToPaste.element.style.opacity = '1'; clipboardNodeData = null;
-                    }
-                }
+                else if (e.key === 'v' && clipboardNodeData) { const nP = findNodeById(clipboardNodeData); if (nP && selectedNodeId !== clipboardNodeData && !isAncestor(clipboardNodeData, selectedNodeId)) { moveNode(clipboardNodeData, selectedNodeId); nP.element.style.opacity = '1'; clipboardNodeData = null; } }
             }
         });
         
         container.addEventListener('click', (e) => { if (e.target === container) deselectAll(); });
         centerBtn.addEventListener('click', () => { const root = nodes.find(n => !n.parentId); if (root) selectNode(root.id); });
 
-        saveMapBtn.addEventListener('click', () => {
-            const savableNodes = nodes.map(n => ({ id: n.id, text: n.text, parentId: n.parentId, children: n.children, direction: n.direction }));
-            const data = { nodes: savableNodes, nodeIdCounter };
-            const jsonString = JSON.stringify(data, null, 2);
-            const blob = new Blob([jsonString], { type: 'application/json' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = 'mindmap.smm';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+        touchAddChildBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); if(!selectedNodeId) return;
+            const selectedNode = findNodeById(selectedNodeId);
+            if(selectedNode){ const newNode = createNode('새 노드', selectedNodeId); if (selectedNode.parentId === null) balanceRootChildren(); reorganizeLayout(); selectNode(newNode.id); editNodeText(newNode.id); }
+        });
+        touchAddSiblingBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); if(!selectedNodeId) return;
+            const selectedNode = findNodeById(selectedNodeId);
+            if(selectedNode && selectedNode.parentId){ const parent = findParent(selectedNodeId); const newNode = createNode('새 노드', parent.id); if (parent.parentId === null) balanceRootChildren(); reorganizeLayout(); selectNode(newNode.id); editNodeText(newNode.id); }
+        });
+        touchDeleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); if(!selectedNodeId) return;
+            const selectedNode = findNodeById(selectedNodeId);
+if(selectedNode && selectedNode.parentId){ const parent = findParent(selectedNodeId); deleteNode(selectedNodeId); selectedNodeId = null; reorganizeLayout(); if(parent) selectNode(parent.id); }
         });
 
-        loadMapBtn.addEventListener('click', () => fileInput.click());
-        fileInput.addEventListener('change', (event) => {
-            const file = event.target.files[0]; if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                try {
-                    const data = JSON.parse(e.target.result);
-                    if (data && data.nodes) rebuildMapFromData(data); else alert('잘못된 파일 형식입니다.');
-                } catch (err) { alert('파일을 불러오는 중 오류가 발생했습니다.'); }
-            };
-            reader.readAsText(file); fileInput.value = '';
-        });
-
-        function rebuildMapFromData(data) {
-            container.querySelectorAll('.node, #mindmap-svg > *').forEach(el => el.remove());
-            nodes = []; selectedNodeId = null; nodeIdCounter = data.nodeIdCounter || 0;
-            data.nodes.forEach(nodeData => {
-                const { id, text, parentId } = nodeData;
-                createNode(text, parentId, id);
-            });
-            balanceRootChildren();
-            reorganizeLayout();
-            const root = data.nodes.find(n => !n.parentId);
-            if(root) selectNode(root.id);
-        }
-
-        exportBtn.addEventListener('click', () => {
-            const selectedElem = document.querySelector('.node.selected');
-            if (selectedElem) selectedElem.classList.remove('selected');
-            watermark.style.display = 'none'; helpBox.style.display = 'none';
-            const { scrollLeft, scrollTop } = container;
-            container.scrollTo(0, 0);
-            html2canvas(container, {
-                backgroundColor: '#fdfdfd', scale: window.devicePixelRatio,
-                width: container.scrollWidth, height: container.scrollHeight,
-                windowWidth: container.scrollWidth, windowHeight: container.scrollHeight,
-            }).then(canvas => {
-                const link = document.createElement('a');
-                link.href = canvas.toDataURL('image/png'); link.download = 'mindmap.png';
-                link.click();
-                if (selectedElem) selectedElem.classList.add('selected');
-                watermark.style.display = 'block'; helpBox.style.display = 'block';
-                container.scrollTo(scrollLeft, scrollTop);
-            });
-        });
-
-        let isPanning = false; let lastPanX, lastPanY;
-        container.addEventListener('touchstart', (e) => {
-            if (e.target === container || e.target === svg) {
-                isPanning = true; const touch = e.touches[0];
-                lastPanX = touch.clientX; lastPanY = touch.clientY;
-            }
-        }, { passive: true });
-        container.addEventListener('touchmove', (e) => {
-            if (!isPanning || !e.touches[0]) return;
-            const touch = e.touches[0];
-            const dx = touch.clientX - lastPanX; const dy = touch.clientY - lastPanY;
-            container.scrollLeft -= dx; container.scrollTop -= dy;
-            lastPanX = touch.clientX; lastPanY = touch.clientY;
-        }, { passive: true });
-        container.addEventListener('touchend', () => { isPanning = false; });
+        saveMapBtn.addEventListener('click',()=>{const saveData=nodes.map(n=>({id:n.id,text:n.text,parentId:n.parentId,children:n.children,direction:n.direction}));const dataStr=JSON.stringify({nodes:saveData,nodeIdCounter},null,2);const blob=new Blob([dataStr],{type:'application/json'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download='mindmap.smm';document.body.appendChild(link);link.click();document.body.removeChild(link)});
+        loadMapBtn.addEventListener('click',()=>fileInput.click());
+        fileInput.addEventListener('change',e=>{const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=ev=>{try{const data=JSON.parse(ev.target.result);if(data&&data.nodes)rebuildMapFromData(data);else alert('잘못된 파일 형식입니다.')}catch(err){alert('파일을 불러오는 중 오류가 발생했습니다.')}};reader.readAsText(file);e.target.value=''});
+        function rebuildMapFromData(data){container.querySelectorAll('.node, #mindmap-svg > *').forEach(el=>el.remove());nodes=[];selectedNodeId=null;nodeIdCounter=data.nodeIdCounter||0;const nodeMap=new Map(data.nodes.map(n=>[n.id,n]));function buildTree(nodeData){const{id,text,parentId,children}=nodeData;createNode(text,parentId,id);if(children)children.forEach(childId=>{const childData=nodeMap.get(childId);if(childData)buildTree(childData)})};const rootData=data.nodes.find(n=>!n.parentId);if(rootData){buildTree(rootData);balanceRootChildren();reorganizeLayout();selectNode(rootData.id)}}
+        exportBtn.addEventListener('click',()=>{const el=document.querySelector('.node.selected');if(el)el.classList.remove('selected');document.getElementById('watermark').style.display='none';document.getElementById('help-box').style.display='none';const{scrollLeft,scrollTop}=container;container.scrollTo(0,0);html2canvas(container,{backgroundColor:'#fdfdfd',scale:window.devicePixelRatio,width:container.scrollWidth,height:container.scrollHeight,windowWidth:container.scrollWidth,windowHeight:container.scrollHeight}).then(canvas=>{const link=document.createElement('a');link.href=canvas.toDataURL('image/png');link.download='mindmap.png';link.click();if(el)el.classList.add('selected');document.getElementById('watermark').style.display='block';if(document.getElementById('help-box'))document.getElementById('help-box').style.display='block';container.scrollTo(scrollLeft,scrollTop)})});
+        let isPanning=false,lastPanX,lastPanY;container.addEventListener('touchstart',e=>{if(e.target===container||e.target===svg){isPanning=true;const touch=e.touches[0];lastPanX=touch.clientX;lastPanY=touch.clientY}},{passive:true});
+        container.addEventListener('touchmove',e=>{if(!isPanning||!e.touches[0])return;const touch=e.touches[0];const dx=touch.clientX-lastPanX;const dy=touch.clientY-lastPanY;container.scrollLeft-=dx;container.scrollTop-=dy;lastPanX=touch.clientX;lastPanY=touch.clientY},{passive:true});
+        container.addEventListener('touchend',()=>{isPanning=false});
+        window.addEventListener('resize',reorganizeLayout);
         
-        window.addEventListener('resize', reorganizeLayout);
-        function init() {
+        function init(){
             createNode('중심 토픽');
             reorganizeLayout();
-            selectNode(nodes[0].id);
-            container.scrollLeft = (container.scrollWidth - container.clientWidth) / 2;
+            const root = nodes.find(n => !n.parentId);
+            if (root) {
+                // 렌더링이 완료된 후 스크롤을 중앙으로 이동시킵니다.
+                setTimeout(() => {
+                    container.scrollLeft = root.x - (container.clientWidth / 2);
+                    container.scrollTop = root.y - (container.clientHeight / 2);
+                    // 시작 시 부드러운 스크롤 효과 없이 즉시 중앙 노드를 선택합니다.
+                    selectNode(root.id, 'auto');
+                }, 0);
+            }
         }
-        window.onload = init;
+        window.onload=init;
     </script>
 </body>
 </html>
