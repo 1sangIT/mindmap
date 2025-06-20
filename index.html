@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>심플 마인드맵 v8 - 모바일 최적화</title>
+    <title>심플 마인드맵 9 - 모바일 최적화</title>
     <!-- PWA 테마 색상 및 아이콘 설정 -->
     <meta name="theme-color" content="#4a90e2"/>
     <link rel="apple-touch-icon" href="https://placehold.co/192x192/4a90e2/ffffff?text=SMM">
@@ -97,26 +97,27 @@
         /* 모바일용 + 버튼 스타일 */
         .node-add-btn {
             display: none;
-            width: 20px;
-            height: 20px;
+            width: 24px;
+            height: 24px;
             background-color: #4CAF50;
             color: white;
             border: none;
             border-radius: 50%;
-            font-size: 16px;
+            font-size: 18px;
             line-height: 1;
             cursor: pointer;
             padding: 0;
             flex-shrink: 0;
+            transition: all 0.2s ease;
         }
 
         .node-add-btn:hover {
             background-color: #45a049;
         }
 
-        /* 모바일에서만 + 버튼 보이기 */
+        /* 선택된 노드에서만 + 버튼 보이기 (모바일) */
         @media (hover: none) and (pointer: coarse), (max-width: 768px) {
-            .node-add-btn {
+            .node.selected .node-add-btn {
                 display: block;
             }
         }
@@ -404,12 +405,8 @@
             nodeElement.id = id; 
             nodeElement.className = 'node';
             
-            // 모바일에서 + 버튼 추가
-            if (isMobile) {
-                nodeElement.innerHTML = `<span>${text}</span><button class="node-add-btn">+</button>`;
-            } else {
-                nodeElement.innerHTML = `<span>${text}</span>`;
-            }
+            // 항상 + 버튼을 포함하되, CSS로 표시 여부 제어
+            nodeElement.innerHTML = `<span>${text}</span><button class="node-add-btn">+</button>`;
             
             if (!parentId) nodeElement.classList.add('root');
             container.appendChild(nodeElement);
@@ -582,8 +579,8 @@
                     newSpan.textContent = node.text;
                     node.element.replaceChild(newSpan, input);
                     
-                    // + 버튼 다시 보이기
-                    if (isMobile) {
+                    // + 버튼 다시 보이기 (선택된 노드인 경우)
+                    if (isMobile && selectedNodeId === id) {
                         editingIndicator.style.display = 'none';
                         const addBtn = node.element.querySelector('.node-add-btn');
                         if (addBtn) addBtn.style.display = 'block';
@@ -601,7 +598,7 @@
                 } else if(e.key === 'Escape'){
                     if(node.element.contains(input)) {
                         node.element.replaceChild(span, input);
-                        if (isMobile) {
+                        if (isMobile && selectedNodeId === id) {
                             editingIndicator.style.display = 'none';
                             const addBtn = node.element.querySelector('.node-add-btn');
                             if (addBtn) addBtn.style.display = 'block';
