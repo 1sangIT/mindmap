@@ -2,137 +2,32 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>심플 마인드맵 v10 - 드래그, 수정</title>
-
-    <!-- PWA 테마 색상 및 아이콘 설정 -->
-    <meta name="theme-color" content="#4a90e2"/>
-    <link rel="apple-touch-icon" href="https://placehold.co/192x192/4a90e2/ffffff?text=SMM">
-
-    <!-- manifest.json 링크 (스크립트로 동적 생성) -->
-    <link rel="manifest" id="manifest">
-
-    <!-- html2canvas 라이브러리 로드 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>심플 마인드맵 -v11</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-
     <style>
-        /* 기본 페이지 스타일 */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
         body {
-            font-family: 'Malgun Gothic', '맑은 고딕', sans-serif;
+            font-family: 'Malgun Gothic', sans-serif;
             background-color: #fdfdfd;
-            color: #333;
-            margin: 0;
-            padding: 0;
             overflow: hidden;
-            display: flex;
-            justify-content: center;
-            align-items: center;
             height: 100vh;
-            touch-action: pan-x pan-y;
         }
 
-        /* 마인드맵 전체를 감싸는 컨테이너 */
         #mindmap-container {
             position: relative;
             width: 100%;
             height: 100%;
             overflow: auto;
-            -webkit-overflow-scrolling: touch;
-        }
-
-        /* 스크롤바 디자인 */
-        #mindmap-container::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-
-        #mindmap-container::-webkit-scrollbar-thumb {
-            background-color: #ccc;
-            border-radius: 4px;
-        }
-
-        #mindmap-container::-webkit-scrollbar-track {
-            background-color: #f0f0f0;
-        }
-
-        /* 노드 기본 스타일 */
-        .node {
-            position: absolute;
-            background-color: #f0f0f0;
-            border: 1px solid #adadad;
-            border-radius: 25px;
-            padding: 12px 20px;
-            cursor: pointer;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
-            transition: all 0.3s ease;
-            min-width: 50px;
-            text-align: center;
-            white-space: nowrap;
-            z-index: 1;
-            user-select: none;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .node.root {
-            background-color: #4a90e2;
-            color: white;
-            border-color: #357ABD;
-        }
-
-        .node.selected {
-            border-color: #d0021b;
-            box-shadow: 0 0 15px rgba(208, 2, 27, 0.5);
-            transform: scale(1.05);
-        }
-
-        .node input {
-            border: none;
-            outline: none;
-            background-color: transparent;
-            text-align: center;
-            font-size: 1em;
-            width: 100%;
-            padding: 0;
-            margin: 0;
-            color: inherit;
-        }
-
-        /* 모바일용 + 버튼 스타일 */
-        .node-add-btn {
-            display: none;
-            width: 24px;
-            height: 24px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            font-size: 18px;
-            line-height: 1;
-            cursor: pointer;
-            padding: 0;
-            flex-shrink: 0;
-            transition: all 0.2s ease;
-        }
-
-        .node-add-btn:hover {
-            background-color: #45a049;
-        }
-
-        /* 선택된 노드에서만 + 버튼 보이기 (모바일) */
-        @media (hover: none) and (pointer: coarse), (max-width: 768px) {
-            .node.selected .node-add-btn {
-                display: block;
-            }
         }
 
         #mindmap-svg {
             position: absolute;
             top: 0;
             left: 0;
-            width: 300%;
-            height: 300%;
+            width: 3000px;
+            height: 3000px;
             pointer-events: none;
         }
 
@@ -142,6 +37,55 @@
             fill: none;
         }
 
+        .node {
+            position: absolute;
+            background-color: #f0f0f0;
+            border: 1px solid #adadad;
+            border-radius: 25px;
+            padding: 12px 20px;
+            cursor: move;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.08);
+            min-width: 80px;
+            max-width: 400px;
+            text-align: center;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            word-break: keep-all;
+            z-index: 10;
+            user-select: none;
+            writing-mode: horizontal-tb;
+            display: inline-block;
+        }
+
+        .node.dragging {
+            opacity: 0.7;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+            z-index: 100;
+        }
+
+        .node.root {
+            background-color: #4a90e2;
+            color: white;
+            border-color: #357ABD;
+            font-weight: bold;
+        }
+
+        .node.selected {
+            border-color: #d0021b;
+            box-shadow: 0 0 15px rgba(208,2,27,0.5);
+        }
+
+        .node input {
+            border: none;
+            outline: none;
+            background-color: transparent;
+            text-align: center;
+            font-size: 1em;
+            width: 100%;
+            color: inherit;
+            font-family: 'Malgun Gothic', sans-serif;
+        }
+
         .ui-controls {
             position: fixed;
             top: 20px;
@@ -149,165 +93,74 @@
             display: flex;
             flex-direction: column;
             gap: 10px;
-            z-index: 10;
+            z-index: 1000;
         }
 
         .ui-button {
             background-color: #fff;
-            color: #333;
-            padding: 8px 16px;
+            padding: 10px 16px;
             border: 1px solid #ccc;
             border-radius: 5px;
             cursor: pointer;
             font-size: 14px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
             transition: all 0.2s;
         }
 
         .ui-button:hover {
             background-color: #f5f5f5;
-            border-color: #aaa;
         }
 
         #export-btn {
             background-color: #4CAF50;
             color: white;
-            border-color: #4CAF50;
+            border: none;
         }
 
         #export-btn:hover {
             background-color: #45a049;
-            border-color: #45a049;
         }
 
         #center-btn {
             position: fixed;
             top: 20px;
             left: 20px;
-        }
-
-        #watermark {
-            position: fixed;
-            bottom: 15px;
-            right: 20px;
-            font-size: 12px;
-            color: #cccccc;
-            z-index: 10;
-            pointer-events: none;
+            z-index: 1000;
         }
 
         #help-box {
             position: fixed;
-            top: 65px;
+            top: 80px;
             left: 20px;
-            background-color: rgba(255, 255, 255, 0.95);
+            background-color: rgba(255,255,255,0.95);
             border: 1px solid #e0e0e0;
             border-radius: 8px;
             padding: 15px;
+            font-size: 13px;
+            z-index: 1000;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            z-index: 10;
-            font-size: 14px;
-            color: #555;
         }
 
         #help-box strong {
             display: block;
             margin-bottom: 10px;
-            font-size: 16px;
-            color: #333;
+            font-size: 15px;
         }
 
-        #help-box ul { list-style: none; padding: 0; margin: 0; }
-        #help-box li { margin-bottom: 8px; }
-        #help-box li:last-child { margin-bottom: 0; }
+        #help-box div {
+            margin: 5px 0;
+        }
 
         #help-box span {
             display: inline-block;
             background-color: #e9e9e9;
+            padding: 2px 8px;
             border-radius: 4px;
-            padding: 2px 6px;
             margin-right: 8px;
-            font-family: 'Consolas', monospace;
-            border: 1px solid #dcdcdc;
-            color: #333;
-        }
-
-        /* 모바일 터치 메뉴 스타일 */
-        #touch-menu {
-            position: fixed;
-            display: none;
-            flex-direction: row;
-            gap: 8px;
-            background-color: #fff;
-            border-radius: 25px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-            padding: 8px;
-            z-index: 20;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-        }
-
-        #touch-menu button {
-            background: #4a90e2;
-            color: white;
-            border: none;
-            border-radius: 20px;
-            padding: 10px 16px;
-            font-size: 14px;
-            cursor: pointer;
-            white-space: nowrap;
-        }
-
-        #touch-menu button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        #touch-menu button.delete-btn {
-            background-color: #d0021b;
-        }
-
-        /* 모바일 반응형 스타일 */
-        @media (max-width: 768px) {
-            .ui-button {
-                padding: 10px;
-                font-size: 12px;
-            }
-            .ui-controls {
-                top: 10px;
-                right: 10px;
-            }
-            #center-btn {
-                top: 10px;
-                left: 10px;
-            }
-            #help-box {
-                display: none;
-            }
-            .node {
-                padding: 10px 16px;
-                font-size: 14px;
-            }
-        }
-
-        /* 편집 모드 표시 */
-        .editing-indicator {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background-color: rgba(0, 0, 0, 0.7);
-            color: white;
-            padding: 10px 20px;
-            border-radius: 20px;
-            display: none;
-            z-index: 30;
+            font-family: Consolas, monospace;
         }
     </style>
 </head>
 <body>
-
     <div id="mindmap-container">
         <svg id="mindmap-svg"></svg>
     </div>
@@ -318,774 +171,447 @@
         <button id="export-btn" class="ui-button">이미지로 저장</button>
     </div>
 
-    <input type="file" id="file-input" accept=".smm, .json" style="display: none;">
-
     <button id="center-btn" class="ui-button">중앙으로</button>
-
-    <div id="watermark">sblab@secondbrainlab.com</div>
 
     <div id="help-box">
         <strong>사용법</strong>
-        <ul>
-            <li><span>Tab</span>: 하위 가지</li>
-            <li><span>Enter</span>: 동일선상 가지</li>
-            <li><span>방향키</span>: 노드 선택 이동</li>
-            <li><span>Del / Bksp</span>: 선택 노드 삭제</li>
-            <li><span>Ctrl + X</span>: 잘라내기</li>
-            <li><span>Ctrl + V</span>: 붙여넣기</li>
-            <li><span>더블클릭/길게누르기</span>: 수정</li>
-        </ul>
-        <p style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #eee;">문의: sblab@secondbrainlab.com</p>
+        <div><span>Tab</span>: 하위 가지</div>
+        <div><span>Enter</span>: 동일선상 가지</div>
+        <div><span>방향키</span>: 노드 선택 이동</div>
+        <div><span>Del / Bksp</span>: 선택 노드 삭제</div>
+        <div><span>드래그</span>: 노드 위치 이동</div>
+        <div><span>더블클릭</span>: 텍스트 수정</div>
+        <p style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #ddd; font-size: 11px;">
+            문의: sblab@secondbrainlab.com
+        </p>
     </div>
 
-    <div id="touch-menu">
-        <button id="touch-add-child">➕ 하위</button>
-        <button id="touch-add-sibling">➕ 형제</button>
-        <button id="touch-edit">✏️ 수정</button>
-        <button id="touch-delete" class="delete-btn">🗑️ 삭제</button>
-    </div>
-
-    <div class="editing-indicator">텍스트 수정 중...</div>
+    <input type="file" id="file-input" accept=".smm,.json" style="display: none;">
 
     <script>
-        const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-
-        // --- PWA 설정 ---
-        function setupPWA() {
-            const manifestData = {
-                "name": "심플 마인드맵", "short_name": "마인드맵", "start_url": ".",
-                "display": "standalone", "background_color": "#fdfdfd", "theme_color": "#4a90e2",
-                "description": "간단하고 빠른 웹 기반 마인드맵 애플리케이션",
-                "icons": [
-                    { "src": "https://placehold.co/192x192/4a90e2/ffffff?text=SMM", "sizes": "192x192", "type": "image/png" },
-                    { "src": "https://placehold.co/512x512/4a90e2/ffffff?text=SMM", "sizes": "512x512", "type": "image/png" }
-                ]
-            };
-            const manifestBlob = new Blob([JSON.stringify(manifestData)], { type: 'application/json' });
-            document.getElementById('manifest').href = URL.createObjectURL(manifestBlob);
-
-            if ('serviceWorker' in navigator) {
-                const swCode = `
-        const CACHE_NAME = 'simple-mindmap-cache-v1';
-        self.addEventListener('install', e => e.waitUntil(caches.open(CACHE_NAME)));
-        self.addEventListener('fetch', e => e.respondWith(caches.match(e.request).then(r => r || fetch(e.request))));
-        `;
-                const swBlob = new Blob([swCode], { type: 'application/javascript' });
-                navigator.serviceWorker.register(URL.createObjectURL(swBlob))
-                    .then(reg => console.log('Service Worker 등록 성공:', reg))
-                    .catch(err => console.log('Service Worker 등록 실패:', err));
-            }
-        }
-        setupPWA();
-
-        // --- DOM 요소 가져오기 ---
         const container = document.getElementById('mindmap-container');
         const svg = document.getElementById('mindmap-svg');
-        const exportBtn = document.getElementById('export-btn');
-        const centerBtn = document.getElementById('center-btn');
-        const saveMapBtn = document.getElementById('save-map-btn');
-        const loadMapBtn = document.getElementById('load-map-btn');
-        const fileInput = document.getElementById('file-input');
-        const touchMenu = document.getElementById('touch-menu');
-        const touchAddChildBtn = document.getElementById('touch-add-child');
-        const touchAddSiblingBtn = document.getElementById('touch-add-sibling');
-        const touchEditBtn = document.getElementById('touch-edit');
-        const touchDeleteBtn = document.getElementById('touch-delete');
-        const editingIndicator = document.querySelector('.editing-indicator');
 
-        // --- 상태 변수 ---
         let nodes = [];
         let selectedNodeId = null;
-        let clipboardNodeData = null;
         let nodeIdCounter = 0;
-        const HORIZONTAL_GAP = 120;
-        const VERTICAL_GAP = 20;
+        const HORIZONTAL_GAP = 150;
+        const VERTICAL_GAP = 30;
 
-        // --- 핵심 함수 ---
-        function generateId() { return `node-${nodeIdCounter++}`; }
-        function findNodeById(id) { return nodes.find(n => n.id === id) || null; }
-        function findParent(childId) {
-            const childNode = findNodeById(childId);
-            return childNode ? findNodeById(childNode.parentId) : null;
-        }
+        let isDragging = false;
+        let dragNode = null;
+        let dragOffsetX = 0;
+        let dragOffsetY = 0;
 
-        function createNode(text, parentId = null, loadedId = null) {
-            const id = loadedId || generateId();
-            if (loadedId) {
-                const numericId = parseInt(id.split('-')[1]);
-                if (numericId >= nodeIdCounter) nodeIdCounter = numericId + 1;
-            }
-
-            const nodeElement = document.createElement('div');
-            nodeElement.id = id;
-            nodeElement.className = 'node';
+        function createNode(text, parentId = null) {
+            const id = `node-${nodeIdCounter++}`;
+            const div = document.createElement('div');
+            div.id = id;
+            div.className = 'node';
+            div.textContent = text;
             
-            // 항상 + 버튼을 포함하되, CSS로 표시 여부 제어
-            nodeElement.innerHTML = `<span>${text}</span><button class="node-add-btn">+</button>`;
+            if (!parentId) div.classList.add('root');
             
-            if (!parentId) nodeElement.classList.add('root');
-            container.appendChild(nodeElement);
+            container.appendChild(div);
 
-            const nodeData = { id, text, parentId, children: [], element: nodeElement, x: 0, y: 0, direction: 1 };
+            const nodeData = {
+                id: id,
+                text: text,
+                parentId: parentId,
+                children: [],
+                element: div,
+                x: 0,
+                y: 0,
+                direction: 1
+            };
+
             nodes.push(nodeData);
 
             if (parentId) {
-                const parentNode = findNodeById(parentId);
-                if (parentNode) {
-                    parentNode.children.push(id);
-                    nodeData.direction = parentNode.direction;
+                const parent = findNode(parentId);
+                if (parent) {
+                    parent.children.push(id);
+                    nodeData.direction = parent.direction;
                 }
             }
-            
-            addNodeEventListeners(nodeElement);
+
+            setupNodeEvents(div);
             return nodeData;
         }
 
-        function addNodeEventListeners(nodeElement) {
-            // 모바일용 + 버튼 이벤트
-            const addBtn = nodeElement.querySelector('.node-add-btn');
-            if (addBtn) {
-                addBtn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const nodeId = nodeElement.id;
-                    const newNode = createNode('새 노드', nodeId);
-                    if (findNodeById(nodeId).parentId === null) balanceRootChildren();
-                    reorganizeLayout();
-                    selectNode(newNode.id);
-                    editNodeText(newNode.id);
-                });
-            }
-
-            // 터치 이벤트
-            if (isMobile) {
-                let touchStartTime;
-                let touchTimer;
-
-                nodeElement.addEventListener('touchstart', (e) => {
-                    touchStartTime = Date.now();
-                    touchTimer = setTimeout(() => {
-                        if (!selectedNodeId || selectedNodeId !== nodeElement.id) {
-                            selectNode(nodeElement.id);
-                        }
-                    }, 300);
-                }, { passive: true });
-
-                nodeElement.addEventListener('touchend', (e) => {
-                    clearTimeout(touchTimer);
-                    const touchDuration = Date.now() - touchStartTime;
-
-                    if (e.target.classList.contains('node-add-btn')) {
-                        return;
-                    }
-
-                    if (touchDuration < 300) {
-                        // 짧은 탭: 선택
-                        e.preventDefault();
-                        e.stopPropagation();
-                        selectNode(nodeElement.id);
-                    }
-                });
-
-                nodeElement.addEventListener('touchmove', () => {
-                    clearTimeout(touchTimer);
-                });
-            } else {
-                // 데스크탑 이벤트
-                nodeElement.addEventListener('dblclick', (e) => {
-                    e.stopPropagation();
-                    editNodeText(nodeElement.id);
-                });
-                nodeElement.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    selectNode(nodeElement.id);
-                });
-            }
-
-            // 드래그 앤 드롭 (데스크탑만)
-            if (!isMobile) {
-                nodeElement.setAttribute('draggable', true);
-                nodeElement.addEventListener('dragstart', (e) => {
-                    e.stopPropagation();
-                    if(findNodeById(nodeElement.id)?.parentId) {
-                        e.dataTransfer.setData('text/plain', nodeElement.id);
-                    } else {
-                        e.preventDefault();
-                    }
-                });
-
-                nodeElement.addEventListener('dragover', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                });
-
-                nodeElement.addEventListener('drop', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const draggedNodeId = e.dataTransfer.getData('text/plain');
-                    const targetNodeId = nodeElement.id;
-                    if (draggedNodeId && draggedNodeId !== targetNodeId && !isAncestor(draggedNodeId, targetNodeId)) {
-                        moveNode(draggedNodeId, targetNodeId);
-                    }
-                });
-            }
+        function findNode(id) {
+            return nodes.find(n => n.id === id);
         }
 
-        function selectNode(id, behavior = 'smooth') {
-            if (selectedNodeId) {
-                findNodeById(selectedNodeId)?.element.classList.remove('selected');
-            }
-            const newSelectedNode = findNodeById(id);
-            if(newSelectedNode) {
-                newSelectedNode.element.classList.add('selected');
-                selectedNodeId = id;
-                newSelectedNode.element.scrollIntoView({ behavior: behavior, block: 'center', inline: 'center' });
+        function findParent(childId) {
+            const child = findNode(childId);
+            return child && child.parentId ? findNode(child.parentId) : null;
+        }
 
-                if (isMobile) {
-                    showTouchMenu(newSelectedNode);
+        function setupNodeEvents(element) {
+            element.addEventListener('mousedown', (e) => {
+                if (e.target.tagName === 'INPUT') return;
+                
+                isDragging = true;
+                dragNode = findNode(element.id);
+                
+                const rect = element.getBoundingClientRect();
+                dragOffsetX = e.clientX - rect.left;
+                dragOffsetY = e.clientY - rect.top;
+                
+                element.classList.add('dragging');
+                e.preventDefault();
+            });
+
+            element.addEventListener('click', (e) => {
+                if (!isDragging) {
+                    selectNode(element.id);
                 }
-            }
+            });
+
+            element.addEventListener('dblclick', (e) => {
+                e.stopPropagation();
+                editNode(element.id);
+            });
         }
 
-        function deselectAll() {
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging || !dragNode) return;
+
+            const rect = container.getBoundingClientRect();
+            const x = e.clientX - rect.left - dragOffsetX + container.scrollLeft;
+            const y = e.clientY - rect.top - dragOffsetY + container.scrollTop;
+
+            dragNode.x = x + dragNode.element.offsetWidth / 2;
+            dragNode.y = y + dragNode.element.offsetHeight / 2;
+
+            dragNode.element.style.left = x + 'px';
+            dragNode.element.style.top = y + 'px';
+
+            updateLines();
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isDragging && dragNode) {
+                dragNode.element.classList.remove('dragging');
+                isDragging = false;
+                dragNode = null;
+            }
+        });
+
+        function selectNode(id) {
             if (selectedNodeId) {
-                findNodeById(selectedNodeId)?.element.classList.remove('selected');
-                selectedNodeId = null;
-            }
-            if (isMobile) touchMenu.style.display = 'none';
-        }
-
-        function showTouchMenu(node) {
-            touchMenu.style.display = 'flex';
-            const isRoot = !node.parentId;
-            touchAddSiblingBtn.disabled = isRoot;
-            touchDeleteBtn.disabled = isRoot;
-        }
-
-        function editNodeText(id){
-            const node = findNodeById(id);
-            if(!node) return;
-
-            const span = node.element.querySelector('span');
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.value = node.text;
-
-            if(node.element.classList.contains('root')) {
-                input.style.color = 'white';
+                const prev = findNode(selectedNodeId);
+                if (prev) prev.element.classList.remove('selected');
             }
             
-            node.element.replaceChild(input, span);
+            const node = findNode(id);
+            if (node) {
+                node.element.classList.add('selected');
+                selectedNodeId = id;
+            }
+        }
 
-            // 모바일에서 편집 표시
-            if (isMobile) {
-                editingIndicator.style.display = 'block';
-                // + 버튼 숨기기
-                const addBtn = node.element.querySelector('.node-add-btn');
-                if (addBtn) addBtn.style.display = 'none';
+        function editNode(id) {
+            const node = findNode(id);
+            if (!node) return;
+
+            const input = document.createElement('input');
+            input.value = node.text;
+            
+            if (node.element.classList.contains('root')) {
+                input.style.color = 'white';
             }
 
+            node.element.textContent = '';
+            node.element.appendChild(input);
             input.focus();
             input.select();
 
-            const finishEditing = () => {
-                const newText = input.value.trim() || '새 노드';
-                if(node.element.contains(input)){
-                    node.text = newText;
-                    const newSpan = document.createElement('span');
-                    newSpan.textContent = node.text;
-                    node.element.replaceChild(newSpan, input);
-                    
-                    // + 버튼 다시 보이기 (선택된 노드인 경우)
-                    if (isMobile && selectedNodeId === id) {
-                        editingIndicator.style.display = 'none';
-                        const addBtn = node.element.querySelector('.node-add-btn');
-                        if (addBtn) addBtn.style.display = 'block';
-                    }
-
-                    reorganizeLayout();
-                }
+            const finish = () => {
+                node.text = input.value.trim() || '새 노드';
+                node.element.textContent = node.text;
+                layout();
             };
 
-            input.addEventListener('blur', finishEditing);
-            input.addEventListener('keydown', e => {
-                if(e.key === 'Enter'){
-                    e.stopPropagation();
-                    finishEditing();
-                } else if(e.key === 'Escape'){
-                    if(node.element.contains(input)) {
-                        node.element.replaceChild(span, input);
-                        if (isMobile && selectedNodeId === id) {
-                            editingIndicator.style.display = 'none';
-                            const addBtn = node.element.querySelector('.node-add-btn');
-                            if (addBtn) addBtn.style.display = 'block';
-                        }
-                    }
+            input.addEventListener('blur', finish);
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    finish();
                 }
             });
         }
 
-        function deleteNode(id){
-            const nodeToDelete = findNodeById(id);
-            if(!nodeToDelete) return;
+        function deleteNode(id) {
+            const node = findNode(id);
+            if (!node) return;
 
-            [...nodeToDelete.children].forEach(childId => deleteNode(childId));
+            node.children.forEach(childId => deleteNode(childId));
 
             const parent = findParent(id);
-            if(parent) {
-                parent.children = parent.children.filter(childId => childId !== id);
+            if (parent) {
+                parent.children = parent.children.filter(cid => cid !== id);
             }
 
-            nodeToDelete.element.remove();
+            node.element.remove();
             nodes = nodes.filter(n => n.id !== id);
         }
 
-        function moveNode(id, newParentId){
-            const nodeToMove = findNodeById(id);
-            const newParent = findNodeById(newParentId);
-            if(!nodeToMove || !newParent) return;
-
-            const oldParent = findParent(id);
-            if(oldParent) {
-                oldParent.children = oldParent.children.filter(childId => childId !== id);
-            }
-
-            nodeToMove.parentId = newParentId;
-            newParent.children.push(id);
-
-            if(newParent.parentId === null) {
-                balanceRootChildren();
-            } else {
-                nodeToMove.direction = newParent.direction;
-            }
-            
-            reorganizeLayout();
-        }
-
-        function isAncestor(id1, id2){
-            const childNode = findNodeById(id2);
-            if(!childNode || !childNode.parentId) return false;
-            if(childNode.parentId === id1) return true;
-            return isAncestor(id1, childNode.parentId);
-        }
-
-        function reorganizeLayout(){
+        function layout() {
             const root = nodes.find(n => !n.parentId);
-            if(!root) return;
+            if (!root) return;
 
-            const centerX = container.scrollWidth / 2;
-            const centerY = container.clientHeight / 2;
+            const centerX = 1500;
+            const centerY = 1500;
 
             root.x = centerX;
             root.y = centerY;
-            root.element.style.left = `${root.x - root.element.offsetWidth / 2}px`;
-            root.element.style.top = `${root.y - root.element.offsetHeight / 2}px`;
+            root.element.style.left = (centerX - root.element.offsetWidth / 2) + 'px';
+            root.element.style.top = (centerY - root.element.offsetHeight / 2) + 'px';
 
-            const leftChildren = root.children.map(findNodeById).filter(n => n && n.direction === -1);
-            const rightChildren = root.children.map(findNodeById).filter(n => n && n.direction === 1);
+            const left = root.children.map(findNode).filter(n => n && n.direction === -1);
+            const right = root.children.map(findNode).filter(n => n && n.direction === 1);
 
-            let currentYRight = root.y - calculateTotalSubtreeHeight(rightChildren) / 2;
-            rightChildren.forEach(child => {
-                const h = calculateSubtreeHeight(child.id);
-                positionNodesRecursively(child.id, root.x, currentYRight + h / 2);
-                currentYRight += h;
+            let yR = centerY - getTotalHeight(right) / 2;
+            right.forEach(child => {
+                const h = getSubtreeHeight(child.id);
+                positionSubtree(child.id, centerX, yR + h / 2);
+                yR += h;
             });
 
-            let currentYLeft = root.y - calculateTotalSubtreeHeight(leftChildren) / 2;
-            leftChildren.forEach(child => {
-                const h = calculateSubtreeHeight(child.id);
-                positionNodesRecursively(child.id, root.x, currentYLeft + h / 2);
-                currentYLeft += h;
+            let yL = centerY - getTotalHeight(left) / 2;
+            left.forEach(child => {
+                const h = getSubtreeHeight(child.id);
+                positionSubtree(child.id, centerX, yL + h / 2);
+                yL += h;
             });
 
             updateLines();
         }
 
-        function positionNodesRecursively(id, parentX, y){
-            const node = findNodeById(id);
-            if(!node) return;
+        function positionSubtree(id, parentX, centerY) {
+            const node = findNode(id);
+            if (!node) return;
 
             const parent = findParent(id);
-            if(!parent) return;
+            if (!parent) return;
 
             const x = parentX + node.direction * (parent.element.offsetWidth / 2 + HORIZONTAL_GAP);
-            const h = calculateSubtreeHeight(id);
-
             node.x = x;
-            node.y = y;
-            node.element.style.left = `${x - node.element.offsetWidth / 2}px`;
-            node.element.style.top = `${y - node.element.offsetHeight / 2}px`;
+            node.y = centerY;
 
-            const children = node.children.map(findNodeById).filter(n => n);
-            if(children.length === 0) return;
+            node.element.style.left = (x - node.element.offsetWidth / 2) + 'px';
+            node.element.style.top = (centerY - node.element.offsetHeight / 2) + 'px';
 
-            let currentY = y - h / 2;
+            const children = node.children.map(findNode).filter(n => n);
+            if (children.length === 0) return;
+
+            const totalH = getTotalHeight(children);
+            let currentY = centerY - totalH / 2;
+
             children.forEach(child => {
-                const childH = calculateSubtreeHeight(child.id);
-                positionNodesRecursively(child.id, node.x, currentY + childH / 2);
-                currentY += childH;
+                const h = getSubtreeHeight(child.id);
+                positionSubtree(child.id, x, currentY + h / 2);
+                currentY += h;
             });
         }
 
-        function calculateTotalSubtreeHeight(arr){
-            return arr.reduce((acc, node) => acc + calculateSubtreeHeight(node.id), 0);
+        function getTotalHeight(nodeArray) {
+            return nodeArray.reduce((sum, node) => sum + getSubtreeHeight(node.id), 0);
         }
 
-        function calculateSubtreeHeight(id){
-            const node = findNodeById(id);
-            if(!node) return 0;
+        function getSubtreeHeight(id) {
+            const node = findNode(id);
+            if (!node) return 0;
 
-            if(node.children.length === 0) {
+            if (node.children.length === 0) {
                 return node.element.offsetHeight + VERTICAL_GAP;
             }
 
-            return node.children.reduce((total, childId) => total + calculateSubtreeHeight(childId), 0);
+            return node.children.reduce((sum, childId) => sum + getSubtreeHeight(childId), 0);
         }
 
-        function updateLines(){
+        function updateLines() {
             svg.innerHTML = '';
+            
             nodes.forEach(node => {
-                if(node.parentId){
-                    const parent = findNodeById(node.parentId);
-                    if(parent){
-                        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                        const dir = node.direction;
-                        const x1 = parent.x + dir * parent.element.offsetWidth / 2;
-                        const y1 = parent.y;
-                        const x2 = node.x - dir * node.element.offsetWidth / 2;
-                        const y2 = node.y;
-                        const cX1 = x1 + dir * HORIZONTAL_GAP / 2;
-                        const cY1 = y1;
-                        const cX2 = x2 - dir * HORIZONTAL_GAP / 2;
-                        const cY2 = y2;
-                        path.setAttribute('d', `M ${x1},${y1} C ${cX1},${cY1} ${cX2},${cY2} ${x2},${y2}`);
-                        svg.appendChild(path);
-                    }
+                if (!node.parentId) return;
+                
+                const parent = findNode(node.parentId);
+                if (!parent) return;
+
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                const dir = node.direction;
+                
+                const x1 = parent.x + dir * parent.element.offsetWidth / 2;
+                const y1 = parent.y;
+                const x2 = node.x - dir * node.element.offsetWidth / 2;
+                const y2 = node.y;
+                
+                const cx1 = x1 + dir * HORIZONTAL_GAP / 2;
+                const cy1 = y1;
+                const cx2 = x2 - dir * HORIZONTAL_GAP / 2;
+                const cy2 = y2;
+                
+                path.setAttribute('d', `M ${x1},${y1} C ${cx1},${cy1} ${cx2},${cy2} ${x2},${y2}`);
+                svg.appendChild(path);
+            });
+        }
+
+        function balanceChildren() {
+            const root = nodes.find(n => !n.parentId);
+            if (!root) return;
+            
+            root.children.forEach((childId, i) => {
+                const child = findNode(childId);
+                if (child) {
+                    child.direction = i % 2 === 0 ? 1 : -1;
                 }
             });
         }
 
-        function balanceRootChildren(){
-            const root = nodes.find(n => !n.parentId);
-            if(!root) return;
-            root.children.map(findNodeById).forEach((child, i) => {
-                if(child) child.direction = i % 2 === 0 ? 1 : -1;
-            });
-        }
+        // 키보드 단축키
+        document.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT' || !selectedNodeId) return;
+            
+            const selected = findNode(selectedNodeId);
+            if (!selected) return;
 
-        // 모바일 터치 메뉴 이벤트
-        touchAddChildBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if(!selectedNodeId) return;
-            const selectedNode = findNodeById(selectedNodeId);
-            if(selectedNode){
+            if (e.key === 'Tab') {
+                e.preventDefault();
                 const newNode = createNode('새 노드', selectedNodeId);
-                if (selectedNode.parentId === null) balanceRootChildren();
-                reorganizeLayout();
+                if (!selected.parentId) balanceChildren();
+                layout();
                 selectNode(newNode.id);
-                setTimeout(() => editNodeText(newNode.id), 100);
-            }
-        });
-
-        touchAddSiblingBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if(!selectedNodeId) return;
-            const selectedNode = findNodeById(selectedNodeId);
-            if(selectedNode && selectedNode.parentId){
-                const parent = findParent(selectedNodeId);
-                const newNode = createNode('새 노드', parent.id);
-                if (parent.parentId === null) balanceRootChildren();
-                reorganizeLayout();
-                selectNode(newNode.id);
-                setTimeout(() => editNodeText(newNode.id), 100);
-            }
-        });
-
-        touchEditBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if(!selectedNodeId) return;
-            editNodeText(selectedNodeId);
-        });
-
-        touchDeleteBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if(!selectedNodeId) return;
-            const selectedNode = findNodeById(selectedNodeId);
-            if(selectedNode && selectedNode.parentId){
-                const parent = findParent(selectedNodeId);
-                deleteNode(selectedNodeId);
-                selectedNodeId = null;
-                reorganizeLayout();
-                if(parent) selectNode(parent.id);
-            }
-        });
-
-        // 키보드 이벤트 (데스크탑)
-        if (!isMobile) {
-            document.addEventListener('keydown', (e) => {
-                if (e.target.tagName === 'INPUT' || !selectedNodeId) return;
-                const selectedNode = findNodeById(selectedNodeId);
-                if (!selectedNode) return;
-
-                const arrowKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
-                if (arrowKeys.includes(e.key)) {
-                    e.preventDefault();
-                    if (selectedNode.parentId === null) {
-                        if (e.key === 'ArrowRight') {
-                            const right = selectedNode.children.map(findNodeById).filter(n => n && n.direction === 1);
-                            if (right.length > 0) selectNode(right[0].id);
-                        } else if (e.key === 'ArrowLeft') {
-                            const left = selectedNode.children.map(findNodeById).filter(n => n && n.direction === -1);
-                            if (left.length > 0) selectNode(left[0].id);
-                        }
-                        return;
-                    }
-
+                editNode(newNode.id);
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (selected.parentId) {
                     const parent = findParent(selectedNodeId);
-                    const siblings = parent.children.map(findNodeById).filter(n => n && n.direction === selectedNode.direction).sort((a, b) => a.y - b.y);
-                    const currentIndex = siblings.findIndex(n => n.id === selectedNodeId);
-
-                    switch (e.key) {
-                        case 'ArrowUp':
-                            if (currentIndex > 0) selectNode(siblings[currentIndex - 1].id);
-                            break;
-                        case 'ArrowDown':
-                            if (currentIndex < siblings.length - 1) selectNode(siblings[currentIndex + 1].id);
-                            break;
-                        case 'ArrowLeft':
-                            if (selectedNode.direction === 1) {
-                                selectNode(parent.id);
-                            } else if (selectedNode.children.length > 0) {
-                                selectNode(selectedNode.children[0]);
-                            }
-                            break;
-                        case 'ArrowRight':
-                            if (selectedNode.direction === -1) {
-                                selectNode(parent.id);
-                            } else if (selectedNode.children.length > 0) {
-                                selectNode(selectedNode.children[0]);
-                            }
-                            break;
-                    }
-                    return;
+                    const newNode = createNode('새 노드', parent.id);
+                    if (!parent.parentId) balanceChildren();
+                    layout();
+                    selectNode(newNode.id);
+                    editNode(newNode.id);
                 }
-
-                switch (e.key) {
-                    case 'Delete':
-                    case 'Backspace':
-                        e.preventDefault();
-                        if (selectedNode.parentId) {
-                            const p = findParent(selectedNodeId);
-                            deleteNode(selectedNodeId);
-                            selectedNodeId = null;
-                            reorganizeLayout();
-                            if (p) selectNode(p.id);
-                        }
-                        break;
-                    case 'Tab':
-                        e.preventDefault();
-                        let nT;
-                        if (selectedNode.parentId === null) {
-                            nT = createNode('새 노드', selectedNodeId);
-                            balanceRootChildren();
-                        } else {
-                            nT = createNode('새 노드', selectedNodeId);
-                        }
-                        reorganizeLayout();
-                        selectNode(nT.id);
-                        editNodeText(nT.id);
-                        break;
-                    case 'Enter':
-                        e.preventDefault();
-                        if (selectedNode.parentId) {
-                            const p = findParent(selectedNodeId);
-                            const nE = createNode('새 노드', p.id);
-                            if (p.parentId === null) balanceRootChildren();
-                            reorganizeLayout();
-                            selectNode(nE.id);
-                            editNodeText(nE.id);
-                        }
-                        break;
+            } else if (e.key === 'Delete' || e.key === 'Backspace') {
+                e.preventDefault();
+                if (selected.parentId) {
+                    const parent = findParent(selectedNodeId);
+                    deleteNode(selectedNodeId);
+                    selectedNodeId = null;
+                    layout();
+                    if (parent) selectNode(parent.id);
                 }
-
-                if ((e.ctrlKey || e.metaKey) && selectedNode.parentId) {
-                    if (e.key === 'x') {
-                        clipboardNodeData = selectedNode.id;
-                        selectedNode.element.style.opacity = '0.3';
-                    } else if (e.key === 'v' && clipboardNodeData) {
-                        const nP = findNodeById(clipboardNodeData);
-                        if (nP && selectedNodeId !== clipboardNodeData && !isAncestor(clipboardNodeData, selectedNodeId)) {
-                            moveNode(clipboardNodeData, selectedNodeId);
-                            nP.element.style.opacity = '1';
-                            clipboardNodeData = null;
-                        }
-                    }
-                }
-            });
-        }
-
-        // 컨테이너 클릭 시 선택 해제
-        container.addEventListener('click', (e) => {
-            if (e.target === container || e.target === svg) {
-                deselectAll();
             }
         });
 
-        // 중앙으로 버튼
-        centerBtn.addEventListener('click', () => {
+        // UI 버튼들
+        document.getElementById('center-btn').addEventListener('click', () => {
             const root = nodes.find(n => !n.parentId);
-            if (root) selectNode(root.id);
+            if (root) {
+                container.scrollLeft = root.x - container.clientWidth / 2;
+                container.scrollTop = root.y - container.clientHeight / 2;
+                selectNode(root.id);
+            }
         });
 
-        // 저장/불러오기 기능
-        saveMapBtn.addEventListener('click', () => {
-            const saveData = nodes.map(n => ({
-                id: n.id,
-                text: n.text,
-                parentId: n.parentId,
-                children: n.children,
-                direction: n.direction
-            }));
-            const dataStr = JSON.stringify({ nodes: saveData, nodeIdCounter }, null, 2);
-            const blob = new Blob([dataStr], { type: 'application/json' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = 'mindmap.smm';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+        document.getElementById('save-map-btn').addEventListener('click', () => {
+            const data = {
+                nodes: nodes.map(n => ({
+                    id: n.id,
+                    text: n.text,
+                    parentId: n.parentId,
+                    children: n.children,
+                    x: n.x,
+                    y: n.y,
+                    direction: n.direction
+                })),
+                nodeIdCounter: nodeIdCounter
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'mindmap.smm';
+            a.click();
         });
 
-        loadMapBtn.addEventListener('click', () => fileInput.click());
+        document.getElementById('load-map-btn').addEventListener('click', () => {
+            document.getElementById('file-input').click();
+        });
 
-        fileInput.addEventListener('change', e => {
+        document.getElementById('file-input').addEventListener('change', (e) => {
             const file = e.target.files[0];
-            if(!file) return;
+            if (!file) return;
+
             const reader = new FileReader();
-            reader.onload = ev => {
+            reader.onload = (ev) => {
                 try {
                     const data = JSON.parse(ev.target.result);
-                    if(data && data.nodes) {
-                        rebuildMapFromData(data);
-                    } else {
-                        alert('잘못된 파일 형식입니다.');
-                    }
-                } catch(err) {
-                    alert('파일을 불러오는 중 오류가 발생했습니다.');
+                    
+                    nodes.forEach(n => n.element.remove());
+                    nodes = [];
+                    svg.innerHTML = '';
+                    nodeIdCounter = data.nodeIdCounter || 0;
+
+                    data.nodes.forEach(nodeData => {
+                        const node = createNode(nodeData.text, nodeData.parentId);
+                        node.x = nodeData.x;
+                        node.y = nodeData.y;
+                        node.direction = nodeData.direction;
+                        node.children = nodeData.children;
+                        
+                        node.element.style.left = (node.x - node.element.offsetWidth / 2) + 'px';
+                        node.element.style.top = (node.y - node.element.offsetHeight / 2) + 'px';
+                    });
+
+                    updateLines();
+                    const root = nodes.find(n => !n.parentId);
+                    if (root) selectNode(root.id);
+                } catch (err) {
+                    alert('파일 로드 실패');
                 }
             };
             reader.readAsText(file);
-            e.target.value = '';
         });
 
-        function rebuildMapFromData(data){
-            container.querySelectorAll('.node, #mindmap-svg > *').forEach(el => el.remove());
-            nodes = [];
-            selectedNodeId = null;
-            nodeIdCounter = data.nodeIdCounter || 0;
-
-            const nodeMap = new Map(data.nodes.map(n => [n.id, n]));
-
-            function buildTree(nodeData){
-                const { id, text, parentId, children } = nodeData;
-                createNode(text, parentId, id);
-                if(children) {
-                    children.forEach(childId => {
-                        const childData = nodeMap.get(childId);
-                        if(childData) buildTree(childData);
-                    });
-                }
-            }
-
-            const rootData = data.nodes.find(n => !n.parentId);
-            if(rootData){
-                buildTree(rootData);
-                balanceRootChildren();
-                reorganizeLayout();
-                selectNode(rootData.id);
-            }
-        }
-
-        // 이미지 내보내기
-        exportBtn.addEventListener('click', () => {
-            const el = document.querySelector('.node.selected');
-            if(el) el.classList.remove('selected');
-            document.getElementById('watermark').style.display = 'none';
-            document.getElementById('help-box').style.display = 'none';
-            if (isMobile) touchMenu.style.display = 'none';
-
-            const { scrollLeft, scrollTop } = container;
-            container.scrollTo(0, 0);
+        document.getElementById('export-btn').addEventListener('click', () => {
+            const selected = document.querySelector('.node.selected');
+            if (selected) selected.classList.remove('selected');
 
             html2canvas(container, {
                 backgroundColor: '#fdfdfd',
-                scale: window.devicePixelRatio,
-                width: container.scrollWidth,
-                height: container.scrollHeight,
-                windowWidth: container.scrollWidth,
-                windowHeight: container.scrollHeight
+                scale: 2
             }).then(canvas => {
-                const link = document.createElement('a');
-                link.href = canvas.toDataURL('image/png');
-                link.download = 'mindmap.png';
-                link.click();
-
-                if(el) el.classList.add('selected');
-                document.getElementById('watermark').style.display = 'block';
-                if(!isMobile) document.getElementById('help-box').style.display = 'block';
-                container.scrollTo(scrollLeft, scrollTop);
+                const url = canvas.toDataURL('image/png');
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'mindmap.png';
+                a.click();
+                
+                if (selected) selected.classList.add('selected');
             });
         });
 
-        // 모바일 팬 기능
-        if (isMobile) {
-            let isPanning = false;
-            let startX, startY;
-            let scrollLeft, scrollTop;
-
-            container.addEventListener('touchstart', (e) => {
-                if (e.target === container || e.target === svg) {
-                    isPanning = true;
-                    startX = e.touches[0].pageX - container.offsetLeft;
-                    startY = e.touches[0].pageY - container.offsetTop;
-                    scrollLeft = container.scrollLeft;
-                    scrollTop = container.scrollTop;
-                }
-            }, { passive: true });
-
-            container.addEventListener('touchmove', (e) => {
-                if (!isPanning) return;
-                const x = e.touches[0].pageX - container.offsetLeft;
-                const y = e.touches[0].pageY - container.offsetTop;
-                const walkX = (x - startX) * 1;
-                const walkY = (y - startY) * 1;
-                container.scrollLeft = scrollLeft - walkX;
-                container.scrollTop = scrollTop - walkY;
-            }, { passive: true });
-
-            container.addEventListener('touchend', () => {
-                isPanning = false;
-            });
-        }
-
-        // 윈도우 리사이즈 처리
-        window.addEventListener('resize', reorganizeLayout);
-
         // 초기화
-        function init(){
+        function init() {
             createNode('중심 토픽');
-            reorganizeLayout();
-            const root = nodes.find(n => !n.parentId);
+            layout();
+            
+            const root = nodes[0];
             if (root) {
                 setTimeout(() => {
-                    container.scrollLeft = root.x - (container.clientWidth / 2);
-                    container.scrollTop = root.y - (container.clientHeight / 2);
-                    selectNode(root.id, 'auto');
-                }, 0);
+                    container.scrollLeft = root.x - container.clientWidth / 2;
+                    container.scrollTop = root.y - container.clientHeight / 2;
+                    selectNode(root.id);
+                }, 100);
             }
         }
 
-        window.onload = init;
+        init();
     </script>
 </body>
 </html>
-
