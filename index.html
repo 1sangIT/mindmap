@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>심플 마인드맵 v12 - 자유 배치</title>
+    <title>심플 마인드맵 v13 - 동적 간격 및 절대 위치</title>
     <!-- PWA 테마 색상 및 아이콘 설정 -->
     <meta name="theme-color" content="#4a90e2"/>
     <link rel="apple-touch-icon" href="https://placehold.co/192x192/4a90e2/ffffff?text=SMM">
@@ -388,8 +388,30 @@
         let isDragging = false;
         let currentDragNode = null;
         let dragOffset = { x: 0, y: 0 };
-        const HORIZONTAL_GAP = 120;
+        
+        // --- [수정 1] 동적 간격 로직 ---
+        const BASE_HORIZONTAL_GAP = 120; // 기본 간격
         const VERTICAL_GAP = 20;
+
+        /**
+         * 부모 노드의 텍스트 길이에 따라 동적 가로 간격을 계산합니다.
+         * @param {object} parentNode - 부모 노드 객체
+         * @returns {number} 계산된 가로 간격
+         */
+        function calculateDynamicGap(parentNode) {
+            if (!parentNode) return BASE_HORIZONTAL_GAP;
+            
+            const textLength = parentNode.text.length;
+            const baseGap = BASE_HORIZONTAL_GAP;
+                
+            // 텍스트가 20자를 넘으면 추가 간격 부여 (글자당 4px)
+            if (textLength > 20) {
+                return baseGap + (textLength - 20) * 4;
+            }
+            return baseGap;
+        }
+        // --- [수정 1] 끝 ---
+
 
         // --- 핵심 함수 ---
         function generateId() { return `node-${nodeIdCounter++}`; }
@@ -427,6 +449,10 @@
                 manuallyPositioned: false,
                 offsetX: 0,
                 offsetY: 0
+                // [수정 4] 불러오기 시 사용될 속성들은 buildTree에서 동적으로 할당됩니다.
+                // useAbsolutePosition: false,
+                // absoluteX: null,
+                // absoluteY: null
             };
             nodes.push(nodeData);
             
@@ -757,6 +783,8 @@
             const centerX = container.scrollWidth / 2;
             const centerY = container.clientHeight / 2;
             
+            // [수정 4] 루트 노드는 불러온 절대 위치를 사용하지 않고, 항상 중앙에 배치.
+            // (루트 노드는 드래그가 안되므로 절대 위치가 의미 없음)
             root.x = centerX;
             root.y = centerY;
             root.element.style.left = `${root.x - root.element.offsetWidth / 2}px`;
@@ -782,6 +810,9 @@
             updateLines();
         }
 
+        /**
+         * [수정 1] 동적 간격 사용하도록 수정
+         */
         function calculateAutoPosition(id) {
             const node = findNodeById(id);
             if (!node) return { x: 0, y: 0 };
@@ -792,8 +823,9 @@
                 return { x: container.scrollWidth / 2, y: container.clientHeight / 2 };
             }
             
-            // 자동 레이아웃 위치 계산 로직 (기존 positionNodesRecursively의 로직)
-            const x = parent.x + node.direction * (parent.element.offsetWidth / 2 + HORIZONTAL_GAP);
+            // [수정 1] 동적 간격 적용
+            const dynamicGap = calculateDynamicGap(parent);
+            const x = parent.x + node.direction * (parent.element.offsetWidth / 2 + dynamicGap);
             
             // Y 위치는 형제 노드들을 고려해서 계산
             const siblings = parent.children.map(findNodeById).filter(n => n && n.direction === node.direction);
@@ -812,6 +844,10 @@
             return { x, y: parent.y };
         }
         
+        /**
+         * [수정 1] 동적 간격 사용
+         * [수정 4] 절대 위치 불러오기 로직 추가
+         */
         function positionNodesRecursively(id, parentX, y){
             const node = findNodeById(id);
             if(!node) return;
@@ -819,14 +855,35 @@
             const parent = findParent(id);
             if(!parent) return;
             
-            const autoX = parentX + node.direction * (parent.element.offsetWidth / 2 + HORIZONTAL_GAP);
+            // [수정 1] 동적 간격 적용
+            const dynamicGap = calculateDynamicGap(parent);
+            const autoX = parentX + node.direction * (parent.element.offsetWidth / 2 + dynamicGap);
             const h = calculateSubtreeHeight(id);
             
-            // 수동으로 위치가 조정된 경우 오프셋 적용
-            if (node.manuallyPositioned) {
+            // [수정 4] 불러오기 로직
+            // 1. '절대 위치 사용'으로 저장된 경우
+            if (node.useAbsolutePosition && node.absoluteX != null && node.absoluteY != null) {
+                node.x = node.absoluteX;
+                node.y = node.absoluteY;
+                
+                // 향후 드래그 및 리사이즈를 위해 수동 위치로 간주하고 offset 계산
+                node.manuallyPositioned = true; 
+                node.offsetX = node.x - autoX;
+                node.offsetY = node.y - y;
+
+                // 플래그 정리 (다음 리사이즈 시 재실행 방지)
+                node.useAbsolutePosition = false; 
+                node.absoluteX = null;
+                node.absoluteY = null;
+
+            } 
+            // 2. '상대 위치'(Offset)로 저장된 경우 (기존 로직)
+            else if (node.manuallyPositioned) {
                 node.x = autoX + node.offsetX;
                 node.y = y + node.offsetY;
-            } else {
+            } 
+            // 3. 자동 배치
+            else {
                 node.x = autoX;
                 node.y = y;
             }
@@ -872,6 +929,9 @@
             return node.children.reduce((total, childId) => total + calculateSubtreeHeight(childId), 0);
         }
 
+        /**
+         * [수정 1] 동적 간격 사용하도록 수정
+         */
         function updateLines(){
             svg.innerHTML = '';
             nodes.forEach(node => {
@@ -884,10 +944,14 @@
                         const y1 = parent.y;
                         const x2 = node.x - dir * node.element.offsetWidth / 2;
                         const y2 = node.y;
-                        const cX1 = x1 + dir * HORIZONTAL_GAP / 2;
+                        
+                        // [수정 1] 동적 간격 적용
+                        const dynamicGap = calculateDynamicGap(parent);
+                        const cX1 = x1 + dir * dynamicGap / 2;
                         const cY1 = y1;
-                        const cX2 = x2 - dir * HORIZONTAL_GAP / 2;
+                        const cX2 = x2 - dir * dynamicGap / 2;
                         const cY2 = y2;
+                        
                         path.setAttribute('d', `M ${x1},${y1} C ${cX1},${cY1} ${cX2},${cY2} ${x2},${y2}`);
                         svg.appendChild(path);
                     }
@@ -1067,18 +1131,37 @@
             if (root) selectNode(root.id);
         });
         
-        // 저장/불러오기 기능
+        // --- [수정 2 & 3] 저장/불러오기 기능 (절대 위치 옵션 추가) ---
         saveMapBtn.addEventListener('click', () => {
-            const saveData = nodes.map(n => ({
-                id: n.id,
-                text: n.text,
-                parentId: n.parentId,
-                children: n.children,
-                direction: n.direction,
-                manuallyPositioned: n.manuallyPositioned,
-                offsetX: n.offsetX,
-                offsetY: n.offsetY
-            }));
+            
+            // [수정 2] 저장 옵션 확인창
+            const useAbsolutePosition = window.confirm(
+                "'절대 위치'로 저장하시겠습니까?\n\n" +
+                "확인: 현재 보이는 위치 그대로 저장 (절대 위치)\n" +
+                "취소: 자동 정렬 기준 상대 위치 저장 (기존 방식)"
+            );
+
+            // [수정 3] 저장 데이터 형식 개선
+            const saveData = nodes.map(n => {
+                const data = {
+                    id: n.id,
+                    text: n.text,
+                    parentId: n.parentId,
+                    children: n.children,
+                    direction: n.direction,
+                    // 기존 오프셋 정보 (상대 위치 저장을 위해 보존)
+                    manuallyPositioned: n.manuallyPositioned,
+                    offsetX: n.offsetX,
+                    offsetY: n.offsetY,
+                    
+                    // 새 절대 위치 정보
+                    useAbsolutePosition: useAbsolutePosition,
+                    absoluteX: useAbsolutePosition ? n.x : null,
+                    absoluteY: useAbsolutePosition ? n.y : null
+                };
+                return data;
+            });
+            
             const dataStr = JSON.stringify({ nodes: saveData, nodeIdCounter }, null, 2);
             const blob = new Blob([dataStr], { type: 'application/json' });
             const link = document.createElement('a');
@@ -1101,9 +1184,14 @@
                     if(data && data.nodes) {
                         rebuildMapFromData(data);
                     } else {
+                        // 간단한 알림창 (alert 대신 사용할 수 있는 커스텀 UI가 필요하지만,
+                        // 이 코드의 기존 스타일에 맞춰 alert를 임시로 사용합니다.
+                        // 실제 프로덕션에서는 모달로 교체하는 것이 좋습니다.)
+                        console.error('잘못된 파일 형식입니다.'); 
                         alert('잘못된 파일 형식입니다.');
                     }
                 } catch(err) {
+                    console.error('파일 불러오기 오류:', err);
                     alert('파일을 불러오는 중 오류가 발생했습니다.');
                 }
             };
@@ -1111,6 +1199,9 @@
             e.target.value = '';
         });
         
+        /**
+         * [수정 4] 불러오기 로직 개선
+         */
         function rebuildMapFromData(data){
             container.querySelectorAll('.node, #mindmap-svg > *').forEach(el => el.remove());
             nodes = [];
@@ -1120,15 +1211,16 @@
             const nodeMap = new Map(data.nodes.map(n => [n.id, n]));
             
             function buildTree(nodeData){
-                const { id, text, parentId, children, manuallyPositioned, offsetX, offsetY } = nodeData;
+                // [수정 4] id, text, parentId, children 외의 모든 속성을 'rest'로 받음
+                const { id, text, parentId, children, ...rest } = nodeData;
                 const node = createNode(text, parentId, id);
                 
-                // 저장된 수동 위치 정보 복원
-                if (manuallyPositioned) {
-                    node.manuallyPositioned = true;
-                    node.offsetX = offsetX || 0;
-                    node.offsetY = offsetY || 0;
-                }
+                // [수정 4] 불러온 모든 속성(offset, absolute, flags 등)을 노드 객체에 할당
+                Object.assign(node, rest); 
+
+                // 이전 버전 파일 호환성을 위해 기본값 설정
+                node.offsetX = node.offsetX || 0;
+                node.offsetY = node.offsetY || 0;
                 
                 if(children) {
                     children.forEach(childId => {
@@ -1142,17 +1234,24 @@
             if(rootData){
                 buildTree(rootData);
                 balanceRootChildren();
+                // reorganizeLayout()가 내부적으로 positionNodesRecursively를 호출하며
+                // [수정 4]의 절대/상대 위치 복원 로직이 실행됨.
                 reorganizeLayout();
                 selectNode(rootData.id);
             }
         }
+        // --- [수정 2 & 3 & 4] 끝 ---
         
         // 이미지 내보내기
         exportBtn.addEventListener('click', () => {
             const el = document.querySelector('.node.selected');
             if(el) el.classList.remove('selected');
             document.getElementById('watermark').style.display = 'none';
-            document.getElementById('help-box').style.display = 'none';
+            
+            // help-box가 존재할 때만 숨김
+            const helpBox = document.getElementById('help-box');
+            if(helpBox) helpBox.style.display = 'none';
+
             if (isMobile) touchMenu.style.display = 'none';
             
             const { scrollLeft, scrollTop } = container;
@@ -1173,7 +1272,7 @@
                 
                 if(el) el.classList.add('selected');
                 document.getElementById('watermark').style.display = 'block';
-                if(document.getElementById('help-box')) document.getElementById('help-box').style.display = 'block';
+                if(helpBox) helpBox.style.display = 'block';
                 container.scrollTo(scrollLeft, scrollTop);
             });
         });
